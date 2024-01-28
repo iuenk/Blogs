@@ -1,0 +1,38 @@
+<Configuration ID="9b903fd3-a618-43ed-bc05-ceaf6a4d2ef0">
+  <Add OfficeClientEdition="64" Channel="Current">
+    <Product ID="O365ProPlusRetail">
+      <Language ID="en-us" />
+      <Language ID="nl-nl" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Bing" />
+    </Product>
+    <Product ID="VisioProRetail">
+      <Language ID="en-us" />
+      <Language ID="nl-nl" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Bing" />
+    </Product>
+    <Product ID="ProjectProRetail">
+      <Language ID="en-us" />
+      <Language ID="nl-nl" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Bing" />
+    </Product>
+    <Product ID="LanguagePack">
+      <Language ID="en-us" />
+      <Language ID="nl-nl" />
+      <ExcludeApp ID="Bing" />
+    </Product>
+  </Add>
+  <Property Name="SharedComputerLicensing" Value="0" />
+  <Property Name="SCLCacheOverride" Value="0" />
+  <Property Name="AUTOACTIVATE" Value="0" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Property Name="DeviceBasedLicensing" Value="0" />
+  <Updates Enabled="TRUE" />
+  <RemoveMSI />
+  <Display Level="None" AcceptEULA="TRUE" />
+</Configuration>
