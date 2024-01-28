@@ -76,12 +76,12 @@ Write-Log -LogOutput ("Configured FSLogix") -Path $LogFile
 
 # Add MSIX app attach certificate (password is not sensitive in this case certificate only used by MSIX app attach)
 Write-Log -LogOutput ("Set MSIX app attach certificate") -Path $LogFile
-Invoke-WebRequest -Uri 'https://github.com/iuenk/AVD/blob/main/resources/msix-20092021.pfx?raw=true' -OutFile "$path\msix-20092021.pfx"
+Invoke-WebRequest -Uri 'https://github.com/iuenk/Blogs/blob/main/AzureImageBuilder/AVD/resources/msix-20092021.pfx?raw=true' -OutFile "$path\msix-20092021.pfx"
 Import-PfxCertificate -FilePath "$path\msix-20092021.pfx" -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' -Password (ConvertTo-SecureString -String 'Welkom01!' -AsPlainText -Force) -Exportable
 
 # Install Microsoft 365 Apps with customization
 Invoke-WebRequest -Uri 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=languagepack&language=nl-nl&platform=x64&source=O16LAP&version=O16GA' -OutFile 'C:\AIB\OfficeSetup.exe'
-Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/iuenk/AVD/main/resources/office-configuration.xml' -OutFile 'C:\AIB\office-configuration.xml'
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/iuenk/Blogs/main/AzureImageBuilder/AVD/resources/office-configuration.xml' -OutFile 'C:\AIB\office-configuration.xml'
 
 Invoke-Expression -command 'C:\AIB\OfficeSetup.exe /configure C:\AIB\office-configuration.xml'
 Start-Sleep -Seconds 600
