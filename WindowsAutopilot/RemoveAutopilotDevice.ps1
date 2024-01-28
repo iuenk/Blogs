@@ -1,28 +1,22 @@
+#=============================================================================================================================
+#
+# Script Name:     RemoveAutopilotDevice.ps1
+# Description:     Get Autopilot CSV's from SharePoint and remove in Autopilot based on specified criteria.
+#   
+# Notes      :     Get Autopilot CSV's from SharePoint and remove in Autopilot based on specified criteria.
+#                  Check URL's if Autopilot service is running otherwise this script will run till timeout see https://social.technet.microsoft.com/Forums/en-US/6f175627-a568-43d4-b518-26e6d049d659/something-went-wrong-oobeaadv10?forum=microsoftintuneprod.
+#                  The $Dummy variable before Add-pnpfile can be necessary due to a bug see https://github.com/pnp/PnP-PowerShell/issues/918.
+#                  Device will be removed if the owner has sufficient permissions on the grouptag. 
+#
+# Created by :     Ivo Uenk
+# Date       :     13-9-2023
+# Version    :     2.3
+#=============================================================================================================================
+
 . .\GenMSALToken.ps1
 . .\GenMail.ps1
 
 #Requires -Module  PnP.PowerShell
-
-<#PSScriptInfo
-.VERSION 2.2
-.AUTHOR Ivo Uenk
-.RELEASENOTES
-
-#>
-<#
-.SYNOPSIS
-Get Autopilot CSV's from SharePoint and remove in Autopilot based on specified criteria.
-.DESCRIPTION
-Get Autopilot CSV's from SharePoint and remove in Autopilot based on specified criteria.
-Check URL's if Autopilot service is running otherwise this script will run till timeout see https://social.technet.microsoft.com/Forums/en-US/6f175627-a568-43d4-b518-26e6d049d659/something-went-wrong-oobeaadv10?forum=microsoftintuneprod.
-The $Dummy variable before Add-pnpfile can be necessary due to a bug see https://github.com/pnp/PnP-PowerShell/issues/918.
-Device will be removed if the owner has sufficient permissions on the grouptag.
-.NOTES
-  Version:        2.2
-  Author:         Ivo Uenk
-  Creation Date:  2023-09-13
-  Purpose/Change: Production
-#>
 
 # Variables
 $PathCsvFiles = "$env:TEMP"

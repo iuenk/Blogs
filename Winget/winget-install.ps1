@@ -1,20 +1,18 @@
-<#
-.SYNOPSIS
-Install apps with Winget through Intune.
-Can be used standalone.
-
-.DESCRIPTION
-Allow to run Winget in System Context to install your apps.
-
-.PARAMETER AppIDs
-Forward Winget App ID to install. For multiple apps, separate with ",". Case sensitive.
-%SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass -command .\winget-install.ps1 -AppIDs 7zip.7zip -v "7zip.7zip -v 22.00", "Notepad++.Notepad++"
-
-.PARAMETER Uninstall
-To uninstall app. Works with AppIDs
-%SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass -command .\winget-install.ps1 -AppIDs 7zip.7zip -Uninstall
-
-#>
+#=============================================================================================================================
+#
+# Script Name:     winget-install.ps1
+# Description:     Will configure the AppInstaller used for Winget and install all apps specified.
+#   
+# Notes      :     Forward Winget App ID to install. For multiple apps, separate with ",". Case sensitive.
+#                  %SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass -command .\winget-install.ps1 -AppIDs 7zip.7zip -v "7zip.7zip -v 22.00", "Notepad++.Notepad++"
+#
+#                  To uninstall app. Works with AppIDs.
+#                  %SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass -command .\winget-install.ps1 -AppIDs 7zip.7zip -Uninstall
+#
+# Created by :     Ivo Uenk
+# Date       :     13-9-2023
+# Version    :     1.0
+#=============================================================================================================================
 
 [CmdletBinding()]
 param(

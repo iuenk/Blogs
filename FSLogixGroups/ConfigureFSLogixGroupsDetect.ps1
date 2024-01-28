@@ -1,6 +1,6 @@
 #=============================================================================================================================
 #
-# Script Name:     ConfigureFSLogixGroups_Detect.ps1
+# Script Name:     ConfigureFSLogixGroupsDetect.ps1
 # Description:     This remediation script will check all members of the Administrators group and add those to the FSLogix exclude list
 #   
 # Notes      :     It will add all the Global administrator and Azure AD joined device local administrator SID's
@@ -12,6 +12,7 @@
 # Date       :     28-6-2023
 # Version    :     1.0
 #=============================================================================================================================
+
 $EC = @()
 $ScriptName = 'ConfigureFSLogixGroups_Detect'
 $Log_File = "C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\$ScriptName.log"

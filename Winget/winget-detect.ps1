@@ -1,3 +1,15 @@
+#=============================================================================================================================
+#
+# Script Name:     winget-detect.ps1
+# Description:     Detect script that can be used for the winget-install.ps1 Intune app.
+#   
+# Notes      :     Use this in the Win32 App configuration wizard to specify the detection of the winget-install.ps1 app.
+#
+# Created by :     Ivo Uenk
+# Date       :     13-9-2023
+# Version    :     1.0
+#=============================================================================================================================
+
 # Change app to detect
 $AppToDetect = "7zip.7zip"
 
