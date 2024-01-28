@@ -1,6 +1,6 @@
 #=============================================================================================================================
 #
-# Script Name:     winget-install.ps1
+# Script Name:     WingetInstall.ps1
 # Description:     Will configure the AppInstaller used for Winget and install all apps specified.
 #   
 # Notes      :     Forward Winget App ID to install. For multiple apps, separate with ",". Case sensitive.

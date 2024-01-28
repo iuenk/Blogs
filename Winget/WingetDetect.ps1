@@ -1,6 +1,6 @@
 #=============================================================================================================================
 #
-# Script Name:     winget-detect.ps1
+# Script Name:     WingetDetect.ps1
 # Description:     Detect script that can be used for the winget-install.ps1 Intune app.
 #   
 # Notes      :     Use this in the Win32 App configuration wizard to specify the detection of the winget-install.ps1 app.
