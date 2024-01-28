@@ -1,0 +1,10 @@
+variables:
+  azureServiceConnection: "ucorp-devops-msdn-sp"
+  subscriptionName: "MSDN Platforms"
+  customer: "ucorp"
+  environment: "prd"
+  solution: "avd"
+  offer: "windows-11"
+  sku: "win11-22h2-avd"
+  publisher: "MicrosoftWindowsDesktop"
+  generation: "V2"

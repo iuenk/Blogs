@@ -1,0 +1,9 @@
+variables:
+  azureServiceConnection: "ucorp-devops-msdn-sp"
+  subscriptionName: "MSDN Platforms"
+  customer: "ucorp"
+  environment: "prd"
+  solution: "cpc"
+  offer: "windows-ent-cpc"
+  sku: "win11-22h2-ent-cpc-os"
+  publisher: "MicrosoftWindowsDesktop"

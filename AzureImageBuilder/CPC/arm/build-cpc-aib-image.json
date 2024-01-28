@@ -1,0 +1,94 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "imageTemplateName": {
+        "type": "string"
+      },
+      "api-version": {
+        "type": "string"
+      },
+      "svclocation": {
+        "type": "string"
+      }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "apiVersion": "[parameters('api-version')]",
+            "type": "Microsoft.VirtualMachineImages/imageTemplates",
+            "name": "[parameters('imageTemplateName')]",
+            "location": "[parameters('svclocation')]",
+            "dependsOn": [],
+            "properties": {
+                "buildTimeoutInMinutes" : 120,
+                "vmProfile": {
+                    "vmSize": "Standard_B2s",
+                    "osDiskSizeGB": 64,
+                    "userAssignedIdentities": [
+                        "<imgBuilderId>"
+                    ]
+                },
+                "source": {
+                    "type": "PlatformImage",
+                    "publisher": "<publisher>",
+                    "offer": "<offer>",
+                    "sku": "<sku>",
+                    "version": "<version>"
+                },
+                "distribute": [
+                    {
+                        "type": "ManagedImage",
+                        "imageId": "<resourceId>",
+                        "location": "westeurope",
+                        "runOutputName": "<runOutputName>"
+                    }
+                ],
+                "customize": [
+                    {
+                        "type": "PowerShell",
+                        "name": "ConfigureBaseline",
+                        "scriptUri": "<baselineConfiguration>",
+                        "runElevated": true,
+                        "runAsSystem": true
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "DeprovisioningScript",
+                        "runElevated": true,
+                        "runAsSystem": true,
+                        "inline": [
+                            "((Get-Content -path C:\\DeprovisioningScript.ps1 -Raw) -replace 'Sysprep.exe /oobe /generalize /quiet /quit','Sysprep.exe /oobe /generalize /quiet /quit /mode:vm') | Set-Content -Path C:\\DeprovisioningScript.ps1"
+                         ]
+                    },
+                    {
+                        "type": "WindowsRestart",
+                        "restartCheckCommand": "write-host 'Restarting for Baseline configuration'",
+                        "restartTimeout": "5m"
+                    },
+                    {
+                        "type": "WindowsUpdate",
+                        "searchCriteria": "IsInstalled=0",
+                        "filters": [
+                            "exclude:$_.Title -like '*Preview*'",
+                            "include:$true"
+                        ],
+                        "updateLimit": 40
+                    }
+                ]
+            },
+            "tags": {
+                "environment": "<environment>",
+                "solution": "<solution>",
+                "tech": "arm"
+            },
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "<imgBuilderId>": {}
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

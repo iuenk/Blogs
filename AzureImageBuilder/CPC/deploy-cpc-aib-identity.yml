@@ -1,0 +1,42 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: CPC
+    type: git
+    name: CPC
+
+stages:
+  - stage: deploy_cpc_aib_identity
+    displayName: deploy cpc aib identity
+    variables:
+      - template: vars/vars-aib-cpc.yml@CPC
+    jobs:
+    - job: deploy_cpc_aib_identity
+      displayName: deploy cpc aib identity
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: Deploy cpc aib identity with ${{variables.azureServiceConnection}} on ${{variables.subscriptionName}}
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            . "$($env:BUILD_SOURCESDIRECTORY)/functions/deploy-cpc-aib-identity.ps1"
+            deploy-cpc-aib-identity `
+            -armFile "$($env:BUILD_SOURCESDIRECTORY)/arm/deploy-cpc-aib-identity.json" `
+            -customer $env:CUSTOMER `
+            -environment $env:ENVIRONMENT `
+            -solution $env:SOLUTION `
+            -subscriptionName $env:SUBSCRIPTIONNAME
+          azurePowerShellVersion: 'LatestVersion'

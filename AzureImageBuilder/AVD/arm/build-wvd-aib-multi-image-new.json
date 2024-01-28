@@ -1,0 +1,247 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "imageTemplateName": {
+        "type": "string"
+      },
+      "api-version": {
+        "type": "string"
+      },
+      "svclocation": {
+        "type": "string"
+      }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "apiVersion": "[parameters('api-version')]",
+            "type": "Microsoft.VirtualMachineImages/imageTemplates",
+            "name": "[parameters('imageTemplateName')]",
+            "location": "[parameters('svclocation')]",
+            "dependsOn": [],
+            "properties": {
+                "buildTimeoutInMinutes" : 120,
+                "vmProfile": {
+                    "vmSize": "Standard_D2s_v4",
+                    "osDiskSizeGB": 127,
+                    "userAssignedIdentities": [
+                        "<imgBuilderId>"
+                    ]
+                },
+                "source": {
+                    "type": "PlatformImage",
+                    "publisher": "<publisher>",
+                    "offer": "<offer>",
+                    "sku": "<sku>",
+                    "version": "<version>"
+                },
+                "distribute": [
+                    {
+                        "type": "SharedImage",
+                        "galleryImageId": "<galleryImageId>",
+                        "replicationRegions": [
+                            "westeurope"
+                        ],
+                        "excludeFromLatest": false,
+                        "runOutputName": "<runOutputName>"
+                    }
+                ],
+                "customize": [
+                    {
+                        "destination": "C:\\AVDImage\\installLanguagePacks.ps1",
+                        "name": "installLanguagePacks",
+                        "sha256Checksum": "2d7f2daac05756c7b313b1411d039430fee048555d87b6a97da8fdabc3b14a3c",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/InstallLanguagePacks.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\installLanguagePacks.ps1 -LanguageList \"Dutch (Netherlands)\""
+                        ],
+                        "name": "installLanguagePacks",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "name": "installLanguagePacks",
+                        "searchCriteria": "",
+                        "type": "WindowsUpdate",
+                        "updateLimit": 0
+                    },
+                    {
+                        "name": "installLanguagePacks",
+                        "restartCheckCommand": "",
+                        "restartCommand": "",
+                        "restartTimeout": "10m",
+                        "type": "WindowsRestart"
+                    },
+                    {
+                        "destination": "C:\\AVDImage\\windowsOptimization.ps1",
+                        "name": "avdBuiltInScript_windowsOptimization",
+                        "sha256Checksum": "b91d5d671cd68b9da06e470af70558f041cd6634c11b59bba520070c7b654ac7",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/WindowsOptimization.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\windowsOptimization.ps1 -Optimizations \"RemoveLegacyIE\",\"RemoveOneDrive\""
+                        ],
+                        "name": "windowsOptimization",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "name": "fsLogixKerberos",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "scriptUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/FSLogixKerberos.ps1",
+                        "sha256Checksum": "ce83bbcbb2f64f8255bc9f678ab6dba92896b8b1861dd094368c483525541703",
+                        "type": "PowerShell"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\screenCaptureProtection.ps1 -block \"BlockBoth\""
+                        ],
+                        "name": "removeOfficeApps",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "name": "windowsUpdate",
+                        "searchCriteria": "",
+                        "type": "WindowsUpdate",
+                        "updateLimit": 0
+                    },
+                    {
+                        "name": "windowsRestart",
+                        "restartCheckCommand": "",
+                        "restartCommand": "",
+                        "restartTimeout": "",
+                        "type": "WindowsRestart"
+                    },
+                    {
+                        "destination": "C:\\AVDImage\\setDefaultLanguage.ps1",
+                        "name": "avdBuiltInScript_setDefaultLanguage",
+                        "sha256Checksum": "143d3ecacab8d226c214962d550c106b5f5c2b1729ff5fac139def968a9a61d6",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/SetDefaultLang.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\setDefaultLanguage.ps1 -Language \"Dutch (Netherlands)\""
+                        ],
+                        "name": "setDefaultLanguage",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "name": "windowsUpdate",
+                        "searchCriteria": "",
+                        "type": "WindowsUpdate",
+                        "updateLimit": 0
+                    },
+                    {
+                        "name": "setDefaultLanguage-windowsRestart",
+                        "restartCheckCommand": "",
+                        "restartCommand": "",
+                        "restartTimeout": "5m",
+                        "type": "WindowsRestart"
+                    },
+                    {
+                        "name": "timeZoneRedirection",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "scriptUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/TimezoneRedirection.ps1",
+                        "sha256Checksum": "b8dbc50b02f64cc7a99f6eeb7ada676673c9e431255e69f3e7a97a027becd8d5",
+                        "type": "PowerShell"
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "ConfigureBaseline",
+                        "scriptUri": "<baselineConfiguration>",
+                        "runElevated": true,
+                        "runAsSystem": true
+                    },
+                    {
+                        "destination": "C:\\AVDImage\\TeamsOptimization.ps1",
+                        "name": "teamsOptimization",
+                        "sha256Checksum": "586f824ae79916322287f69a4daaf9a91939272509cdd39d4b032bd0fa8eb8b2",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/TeamsOptimization.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\TeamsOptimization.ps1 -TeamsDownloadLink \"https://teams.microsoft.com/downloads/desktopurl?env=production&plat=windows&arch=x64&managedInstaller=true&download=true\" -WebRTCInstaller \"https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWWDIg\" -VCRedistributableLink \"https://aka.ms/vs/17/release/vc_redist.x64.exe\""
+                        ],
+                        "name": "teamsOptimization",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "destination": "C:\\AVDImage\\multiMediaRedirection.ps1",
+                        "name": "multiMediaRedirection",
+                        "sha256Checksum": "f577c9079aaa7da399121879213825a3f263f7b067951a234509e72f8b59a7fd",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/MultiMediaRedirection.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\multiMediaRedirection.ps1 -VCRedistributableLink \"https://aka.ms/vs/17/release/vc_redist.x64.exe\" -EnableEdge \"true\" -EnableChrome \"false\""
+                        ],
+                        "name": "multiMediaRedirection",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "type": "PowerShell"
+                    },
+                    {
+                        "destination": "C:\\AVDImage\\removeAppxPackages.ps1",
+                        "name": "removeAppxPackages",
+                        "sha256Checksum": "db1de9f922b9e9de4a1d667e69d0324539606ae01ae182909806d9bdd5bdb518",
+                        "sourceUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/RemoveAppxPackages.ps1",
+                        "type": "File"
+                    },
+                    {
+                        "inline": [
+                            "C:\\AVDImage\\removeAppxPackages.ps1 -AppxPackages \"Clipchamp.Clipchamp\",\"Microsoft.BingNews\",\"Microsoft.BingWeather\",\"Microsoft.GamingApp\",\"Microsoft.GetHelp\",\"Microsoft.Getstarted\",\"Microsoft.MicrosoftOfficeHub\",\"Microsoft.Office.OneNote\",\"Microsoft.MicrosoftSolitaireCollection\",\"Microsoft.People\",\"Microsoft.PowerAutomateDesktop\",\"Microsoft.SkypeApp\",\"Microsoft.Todos\",\"Microsoft.WindowsAlarms\",\"Microsoft.WindowsCamera\",\"Microsoft.windowscommunicationsapps\",\"Microsoft.WindowsFeedbackHub\",\"Microsoft.WindowsMaps\",\"Microsoft.WindowsSoundRecorder\",\"Microsoft.Xbox.TCUI\",\"Microsoft.XboxGameOverlay\",\"Microsoft.XboxGamingOverlay\",\"Microsoft.XboxIdentityProvider\",\"Microsoft.XboxSpeechToTextOverlay\",\"Microsoft.YourPhone\",\"Microsoft.XboxApp\""
+                        ],
+                        "type": "PowerShell",
+                        "name": "removeAppxPackages",
+                        "runAsSystem": true,
+                        "runElevated": true
+                    },
+                    {
+                        "type": "WindowsRestart",
+                        "restartCheckCommand": "write-host 'Restarting for Baseline configuration'",
+                        "restartTimeout": "5m"
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "adminSysPrep",
+                        "runAsSystem": true,
+                        "runElevated": true,
+                        "scriptUri": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/CustomImageTemplateScripts/CustomImageTemplateScripts_2023-07-31/AdminSysPrep.ps1",
+                        "sha256Checksum": "1dcaba4823f9963c9e51c5ce0adce5f546f65ef6034c364ef7325a0451bd9de9"
+                    }
+                ]
+            },
+            "tags": {
+                "environment": "<environment>",
+                "solution": "<solution>",
+                "tech": "arm"
+            },
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "<imgBuilderId>": {}
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

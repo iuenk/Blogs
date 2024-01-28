@@ -1,0 +1,46 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: CPC
+    type: git
+    name: CPC
+
+stages:
+  - stage: build_cpc_aib_image
+    displayName: build cpc aib image
+    variables:
+      - template: vars/vars-aib-cpc.yml@CPC
+    jobs:
+    - job: build_cpc_aib_image
+      displayName: build cpc aib image
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: build cpc aib image with ${{variables.azureServiceConnection}} on ${{variables.subscriptionName}}
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            . "$($env:BUILD_SOURCESDIRECTORY)/functions/build-cpc-aib-image.ps1"
+            build-cpc-aib-image `
+            -armFile "$($env:BUILD_SOURCESDIRECTORY)/arm/build-cpc-aib-image.json" `
+            -baselineConfiguration "$($env:BUILD_SOURCESDIRECTORY)/resources/baseline-cpc-aib-image.ps1" `
+            -customer $env:CUSTOMER `
+            -environment $env:ENVIRONMENT `
+            -solution $env:SOLUTION `
+            -offer $env:OFFER `
+            -sku $env:SKU `
+            -publisher $env:PUBLISHER `
+            -buildNumber $($env:BUILD_BUILDNUMBER)
+          azurePowerShellVersion: 'LatestVersion'

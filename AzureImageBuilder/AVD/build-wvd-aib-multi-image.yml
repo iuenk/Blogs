@@ -1,0 +1,46 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: AVD
+    type: git
+    name: AVD
+
+stages:
+  - stage: build_wvd_aib_multi_image
+    displayName: build wvd aib multi image
+    variables:
+      - template: vars/vars-aib-wvd.yml@AVD
+    jobs:
+    - job: build_wvd_aib_multi_image
+      displayName: build wvd aib multi image
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: Build wvd aib multi image with ${{variables.azureServiceConnection}} on ${{variables.subscriptionName}}
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            . "$($env:BUILD_SOURCESDIRECTORY)/functions/build-wvd-aib-multi-image.ps1"
+            build-wvd-aib-multi-image `
+            -armFile "$($env:BUILD_SOURCESDIRECTORY)/arm/build-wvd-aib-multi-image.json" `
+            -baselineConfiguration "$($env:BUILD_SOURCESDIRECTORY)/resources/baseline-wvd-aib-multi-image.ps1" `
+            -customer $env:CUSTOMER `
+            -environment $env:ENVIRONMENT `
+            -solution $env:SOLUTION `
+            -offer $env:OFFER `
+            -sku $env:SKU `
+            -publisher $env:PUBLISHER `
+            -buildNumber $($env:BUILD_BUILDNUMBER)
+          azurePowerShellVersion: 'LatestVersion'
