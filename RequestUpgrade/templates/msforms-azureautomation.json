@@ -1,0 +1,177 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "__apostrophe": {
+            "type": "string",
+            "defaultValue": "'"
+        },
+        "logicAppLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "allowedValues": [
+              "europe",
+              "francecentral",
+              "francesouth",
+              "northeurope",
+              "westeurope"
+            ],
+            "metadata": {
+              "description": "Location of the Logic App."
+            }
+        },
+        "azureautomation_name": {
+            "type": "string",
+            "defaultValue": "azureautomation"
+        },
+        "azureautomation_displayName": {
+            "type": "string",
+            "defaultValue": "AutomationConnection"
+        },
+        "microsoftforms_name": {
+            "type": "string",
+            "defaultValue": "microsoftforms"
+        },
+        "microsoftforms_displayname": {
+            "type": "string",
+            "defaultValue": "microsoftformsConnection"
+        },
+        "microsoftforms_id": {
+            "type": "string"
+        },        
+        "automationaccountname": {
+            "type": "string"
+        },
+        "logicAppname": {
+            "type": "string"
+        },
+        "runbookname": {
+            "type": "string"
+        },
+        "hostnameId": {
+            "type": "string"
+        },
+        "hybridworkergroup": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+              "description": "Name of the Hybrid Worker Group"
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('logicAppLocation')]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_new_response_is_submitted": {
+                            "inputs": {
+                                "body": {
+                                    "eventType": "responseAdded",
+                                    "notificationUrl": "@{listCallbackUrl()}",
+                                    "source": "ms-connector"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['microsoftforms']['connectionId']"
+                                    }
+                                },
+                                "path": "[concat('/formapi/api/forms/@{encodeURIComponent(',parameters('__apostrophe'),parameters('microsoftforms_id'),parameters('__apostrophe'),')}','/webhooks')]"
+                            },
+                            "splitOn": "@triggerBody()?['value']",
+                            "type": "ApiConnectionWebhook"
+                        }
+                    },
+                    "actions": {
+                        "Create_job": {
+                            "inputs": {
+                                "body": {
+                                    "properties": {
+                                        "parameters": {
+                                            "UPN": "@body('Get_response_details')?['responder']",
+                                            "hostname": "[concat('@body(',parameters('__apostrophe'),'Get_response_details',parameters('__apostrophe'),')?[',parameters('__apostrophe'),parameters('hostnameId'),parameters('__apostrophe'),']')]"
+                                        },
+                                        "runOn": "[parameters('hybridworkergroup')]"
+                                    }
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                    }
+                                },
+                                "method": "put",
+                                "path": "[concat('/subscriptions/@{encodeURIComponent(',parameters('__apostrophe'),subscription().subscriptionId,parameters('__apostrophe'),')}/resourceGroups/@{encodeURIComponent(',parameters('__apostrophe'),resourceGroup().name,parameters('__apostrophe'),')}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(',parameters('__apostrophe'),parameters('automationaccountname'),parameters('__apostrophe'),')}','/jobs')]",
+                                "queries": {
+                                    "runbookName": "[parameters('runbookname')]",
+                                    "wait": true,
+                                    "x-ms-api-version": "2015-10-31"
+                                }
+                            },
+                            "runAfter": {
+                                "Get_response_details": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection"
+                        },
+                        "Get_response_details": {
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['microsoftforms']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "[concat('/formapi/api/forms(',parameters('__apostrophe'),'@{encodeURIComponent(',parameters('__apostrophe'),parameters('microsoftforms_id'),parameters('__apostrophe'),')}',parameters('__apostrophe'),')','/responses')]",
+                                "queries": {
+                                    "response_id": "@triggerBody()?['resourceData']?['responseId']"
+                                }
+                            },
+                            "runAfter": {},
+                            "type": "ApiConnection"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureautomation": {
+                                "id": "[concat('/subscriptions/',subscription().subscriptionId,'/providers/Microsoft.Web/locations/',parameters('logicappLocation'),'/managedApis/azureautomation')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('azureautomation_name'))]",
+                                "connectionName": "[parameters('azureautomation_name')]",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity"
+                                    }
+                                }
+                            },
+                            "microsoftforms": {
+                                "id": "[concat('/subscriptions/',subscription().subscriptionId,'/providers/Microsoft.Web/locations/',parameters('logicappLocation'),'/managedApis/microsoftforms')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('microsoftforms_name'))]",
+                                "connectionName": "[parameters('microsoftforms_name')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

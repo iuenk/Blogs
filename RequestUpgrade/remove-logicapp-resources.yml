@@ -1,0 +1,43 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: generic
+    type: git
+    name: generic
+
+stages:
+  - stage: remove_logicapp_resources
+    displayName: remove logicapp resources
+    variables:
+      - template: logicapp-management/vars/vars.yml@generic
+    jobs:
+    - job: remove_logicapp_resources
+      displayName: remove logicapp resources
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: remove logicapp resources
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            . "$($env:BUILD_SOURCESDIRECTORY)/logicapp-management/functions/remove-logicapp-resources.ps1"
+            remove-logicapp-resources `
+            -rgName $env:rgName `
+            -apiConnection $env:apiConnection `
+            -logicApp $env:LogicApp
+          azurePowerShellVersion: 'LatestVersion'
+        env:
+          apiConnection: $(apiConnection)
+          logicApp: $(logicApp)

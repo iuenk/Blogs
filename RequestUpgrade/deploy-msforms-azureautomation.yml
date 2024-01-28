@@ -1,0 +1,76 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - name: System.Debug
+    value: True
+
+resources:
+  repositories:
+    - repository: RequestUpgrade
+      type: git
+      name: RequestUpgrade
+
+stages:
+  - stage: build
+    displayName: 'copy artifacts'
+    jobs:
+      - job: copy_files_from_repo
+        displayName: 'copy repository files'
+        steps:
+        - task: PowerShell@2
+          displayName: set ps tls version to 1.3
+          inputs:
+            targetType: inline
+            script: |
+              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls13
+            pwsh: true
+
+        - task: CopyFiles@2
+          inputs:
+            contents: '/**'
+            targetFolder: $(Build.ArtifactStagingDirectory)
+        - task: PublishBuildArtifacts@1
+          inputs:
+            pathToPublish: $(Build.ArtifactStagingDirectory)
+            artifactName: templates
+            
+  - stage:
+    displayName: 'deploy templates'
+    variables:
+      - template: vars/vars-msforms-azureautomation.yml
+    jobs:
+      - job: download_and_deploy
+        displayName: 'download artifacts and deploy'
+        steps:
+          - download: current
+            artifact: templates
+            patterns: |
+              **/*.json
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: 'deploy $(logicAppName)'
+            inputs:
+              azureResourceManagerConnection: ${{variables.azureServiceConnection}}
+              subscriptionId: '$(subscriptionId)'
+              location: $(azureLocation)
+              action: 'Create Or Update Resource Group'
+              deploymentMode: Incremental
+              deploymentName: '$(logicAppName)_$(Build.BuildNumber)'
+              resourceGroupName: $(rgName)
+              csmFile: '$(Pipeline.Workspace)/templates/msforms-azureautomation.json'
+              overrideParameters: "
+                -logicappname $(logicAppName)
+                -logicapplocation $(azureLocation)
+                -automationaccountname $(automationAccountName)
+                -hybridworkergroup $(hybridWorkerGroup)
+                -runbookname $(runbookName)
+                -hostnameId $(hostnameId)
+                -azureautomation_displayname $(automationConnectionDisplayName)
+                -azureautomation_name $(automationConnectionName)
+                -microsoftforms_displayname $(microsoftformsConnectionDisplayName)
+                -microsoftforms_name $(microsoftformsConnectionName)
+                -microsoftforms_id $(microsoftFormsId)"

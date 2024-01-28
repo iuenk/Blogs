@@ -1,7 +1,7 @@
 #=============================================================================================================================
 #
 # Script Name:     ConfigureFSLogixGroupsRemediate.ps1
-# Description:     This remediation script will check all members of the Administrators group and add those to the FSLogix exclude list
+# Description:     This remediation script will check all members of the Administrators group and add those to the FSLogix exclude list.
 #   
 # Notes      :     It will add all the Global administrator and Azure AD joined device local administrator SID's
 #                  Those are by default added to the Administrators group for Azure AD joined endpoints
