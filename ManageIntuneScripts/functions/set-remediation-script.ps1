@@ -1,4 +1,11 @@
 function set-remediation-script {
+
+    <#
+    .DESCRIPTION
+    Run this function to create, update or remove Intune remediation scripts. This function script is addressed in pipe set-remediation-script.yml.
+    Initial Author: Ivo Uenk (udirection.com).
+    The script is provided "AS IS" with no warranties.
+    #>
     
     param(
         [Parameter(Mandatory=$true)]
