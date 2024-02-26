@@ -1,0 +1,57 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: intune
+    type: git
+    name: intune
+
+stages:
+  - stage: Set_Device_Script
+    displayName: Set Device Script
+    variables:
+      - template: vars/vars.yml@intune
+    jobs:
+    - job: Set_Device_Script
+      displayName: Set Device Script
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: Set Device Script
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            # Get variables
+            $Path = "$($env:BUILD_SOURCESDIRECTORY)/scripts/$($env:scriptFolder)/$($env:environmentName)/vars.txt"
+            $var = Get-Content $Path | Out-String | ConvertFrom-StringData
+
+            # Assign variables
+            . "$($env:BUILD_SOURCESDIRECTORY)/functions/set-device-script.ps1"
+            set-device-script `
+            -scriptPath "$($env:BUILD_SOURCESDIRECTORY)/scripts/$($env:scriptFolder)/$($var.fileName)" `
+            -vaultName $env:vaultName `
+            -displayName $var.displayName `
+            -cDisplayName $var.cDisplayName `
+            -description $var.description `
+            -publisher $($env:BUILD_REQUESTEDFOREMAIL) `
+            -action $($env:action) `
+            -fileName $var.fileName `
+            -runAsAccount $var.RunAsAccount `
+            -runAs32Bit $var.runAs32Bit `
+            -selectedIncludedGroups $var.includedGroups `
+            -selectedScopeTags $var.scopeTags
+          azurePowerShellVersion: 'LatestVersion'
+        env:
+          action: $(action)
+          scriptFolder: $(scriptFolder)

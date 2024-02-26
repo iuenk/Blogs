@@ -1,0 +1,66 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+resources:
+  repositories:
+  - repository: intune
+    type: git
+    name: intune
+  
+stages:
+  - stage: Set_Remediation_Script
+    displayName: Set Remediation Script
+    variables:
+      - template: vars/vars.yml@intune
+    jobs:
+    - job: Set_Remediation_Script
+      displayName: Set Remediation Script
+      pool:
+        vmImage: windows-2022
+      steps:
+      - task: AzurePowerShell@5
+        displayName: Set Remediation Script
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          ScriptType: 'InlineScript'
+          Inline: |
+            # Get variables
+            $Path = "$($env:BUILD_SOURCESDIRECTORY)/remediations/$($env:scriptFolder)/$($env:environmentName)/vars.txt"
+            $var = Get-Content $Path | Out-String | ConvertFrom-StringData
+
+            if(-not(!$($var.detectScript))){
+              $detectPath = "$($env:BUILD_SOURCESDIRECTORY)/remediations/$($env:scriptFolder)/$($var.detectScript)"
+            }
+
+            if(-not(!$($var.remediateScript))){
+              $remediatePath = "$($env:BUILD_SOURCESDIRECTORY)/remediations/$($env:scriptFolder)/$($var.remediateScript)"
+            }
+
+            # Assign variables
+            . "$($env:BUILD_SOURCESDIRECTORY)/functions/set-remediation-script.ps1"
+            set-remediation-script `
+            -detectPath $detectPath `
+            -remediatePath $remediatePath `
+            -vaultName $env:vaultName `
+            -displayName $var.displayName `
+            -nDisplayName $var.nDisplayName `
+            -description $var.description `
+            -publisher $($env:BUILD_REQUESTEDFOREMAIL) `
+            -action $($env:action) `
+            -runAsAccount $var.RunAsAccount `
+            -runAs32Bit $var.runAs32Bit `
+            -selectedAssignedGroups $var.assignedGroups `
+            -selectedExcludedGroups $var.excludedGroups `
+            -selectedScopeTags $var.scopeTags
+          azurePowerShellVersion: 'LatestVersion'
+        env:
+          action: $(action)
+          scriptFolder: $(scriptFolder)

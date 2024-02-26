@@ -1,0 +1,6 @@
+variables:
+  environmentName: "prd"
+  azureServiceConnection: "<Name service connection Azure DevOps>"
+  subscriptionName: "<Subscription Name>"
+  rgName: "<Azure key vault resource group name>"
+  vaultName: "<Azure key vault name>"

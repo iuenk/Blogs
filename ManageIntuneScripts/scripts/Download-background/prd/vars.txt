@@ -1,0 +1,8 @@
+displayName=Download-Background
+nDisplayName=
+description=Configuring desktop wallpaper Windows 10
+fileName=Download-Background.ps1
+runAsAccount=system
+runAs32Bit=false
+includedGroups=<groupname1>,<groupname2>
+scopeTags=<scopetag1>,<scopetag2>

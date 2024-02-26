@@ -1,0 +1,10 @@
+displayName=VirtualizationBasedProtection
+nDisplayName=
+description=
+detectScript=VirtualizationBasedProtection_Detect.ps1
+remediateScript=VirtualizationBasedProtection_Remediate.ps1
+runAsAccount=system
+runAs32Bit=false
+assignedGroups=<groupname>;daily;1;1:0:0,<groupname>;daily;1;1:0:0;include;<filtername>,<groupname>;daily;1;1:0:0;include;<filtername>
+excludedGroups=<groupname>
+scopeTags=<scopetag1>,<scopetag2>

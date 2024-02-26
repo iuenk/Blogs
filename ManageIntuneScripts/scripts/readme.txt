@@ -1,0 +1,1 @@
+Example script for deploying Intune device scripts
