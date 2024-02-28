@@ -453,22 +453,33 @@ function set-remediation-script {
                             
                 $nAssignedGroups = @()
                 foreach ($group in $assignedGroups){
-
-                    $sg = $group.Split(";")
-
+                
+                    $sg = $group.Split(";")        
+                
                     # Important to empty it
                     $groupId = @()
                     $groupId = $(Get-Group -displayName $sg[0]).id
+                    
+                    # Need to create trick to check if date is empty
+                    $y = (Get-Date).year
 
+                    if($sg[4] -like "$y-*"){
+                        $date = $sg[4]
+                        $sg[4] = $null
+                    }
+                    else {
+                        $date = $null
+                    }
+                
                     $groupObject = [pscustomobject]@{
                         groupId=$groupId
                         displayName=$sg[0]
                         runSchedule=$sg[1]
                         interval=$sg[2]
                         time=$sg[3]
+                        date=$date
                         filterType=$sg[4]
                         filterName=$sg[5]
-                        date=$sg[6]
                     }
                     $nAssignedGroups += $groupObject # Assigned groups output
                 }
@@ -599,7 +610,7 @@ function set-remediation-script {
                             $nSchedule = @"
                             {
                                     "@odata.type":"#microsoft.graph.deviceHealthScriptRunOnceSchedule",
-                                    "date":$($ng.date),
+                                    "date":"$($ng.date)",
                                     "interval":$($ng.interval),
                                     "time":"$($ng.time)",
                                     "useUtc":false
@@ -888,7 +899,7 @@ function set-remediation-script {
                             $nSchedule = @"
                             {
                                     "@odata.type":"#microsoft.graph.deviceHealthScriptRunOnceSchedule",
-                                    "date":$($_.date),
+                                    "date":"$($_.date)",
                                     "interval":$($_.interval),
                                     "time":"$($_.time)",
                                     "useUtc":false
@@ -939,11 +950,11 @@ function set-remediation-script {
 
                         if($($cGroupAssignments.target.groupId) -notcontains $($_.groupId)){                               
                             $g.deviceHealthScriptAssignments += $ga
-                            Write-Host "##[debug] group [$($_.displayName)] added with schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] group [$($_.displayName)] added with schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
                         }
                         else {        
                             $g.deviceHealthScriptAssignments += $ga
-                            Write-Host "##[debug] group [$($_.displayName)] already assigned with updated schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] group [$($_.displayName)] already assigned with updated schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
                         }
                     }
                 }
