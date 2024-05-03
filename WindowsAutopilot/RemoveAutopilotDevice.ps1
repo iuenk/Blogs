@@ -19,8 +19,6 @@
 #Requires -Module  PnP.PowerShell
 
 # Variables
-$MailSender = Get-AutomationVariable -Name "EmailAutomation"
-
 $PathCsvFiles = "$env:TEMP"
 $checkedCombinedOutput = "$pathCsvFiles\checkedcombinedoutput.csv"
 $SiteURL = Get-AutomationVariable -Name "SiteUrlAP"
@@ -37,11 +35,26 @@ $removeFolderSiteRelativeUrl = $removeAutopilotDeviceFolderPath + "/Remove"
 $DevicesDeletedPath = $PathCsvFiles + "\" + "Autopilot-Deleted" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".csv"
 $RemovedErrorsPath = $PathCsvFiles + "\" + "Autopilot-Remove-Errors" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".csv"
 $LogFile = $PathCsvFiles + "\" + "Autopilot-Actions" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".log"
+$MailSender = Get-AutomationVariable -Name "EmailAutomation"
 
 $Label = Get-AutomationVariable -Name "cLabel"
 $cLabel = $Label.Split(",")
 
-######### Functions #########
+# Credentials
+try {
+    $intuneAutomationCredential = Get-AutomationPSCredential -Name "ReadWriteAccount"
+    $userName = $intuneAutomationCredential.UserName  
+    $securePassword = $intuneAutomationCredential.Password
+    $psCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userName, $securePassword 
+
+    Connect-PnPOnline -Url $SiteURL -Credentials $psCredential
+} 
+catch {
+    Write-output "Cannot connect to Microsoft services"
+    break
+}
+
+# Functions
 function Remove-AutoPilotDevice(){
     [cmdletbinding()]
     param
@@ -54,7 +67,7 @@ function Remove-AutoPilotDevice(){
         $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource/$id"
 
         try {
-            Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Delete | Out-Null
+            Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Delete | Out-Null
         }
         catch {   
             $ex = $_.Exception
@@ -63,7 +76,7 @@ function Remove-AutoPilotDevice(){
             $reader.BaseStream.Position = 0
             $reader.DiscardBufferedData()
             $responseBody = $reader.ReadToEnd();
-            
+    
             Write-Output "Response content:`n$responseBody"
             Write-Error "Request to $Uri failed with HTTP Status $($ex.Response.StatusCode) $($ex.Response.StatusDescription)"
             break
@@ -84,13 +97,13 @@ param
     try {
         # Necessary otherwise it will stop at 100 rows
         $GroupMembership = @()
-        $GroupMembershipResponse = (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get)
+        $GroupMembershipResponse = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
         [array]$GroupMembership = $GroupMembershipResponse.value
         $GroupMembership
 
         $GroupMembershipNextLink = $GroupMembershipResponse."@odata.nextLink"
         while ($null -ne $GroupMembershipNextLink) {
-            $GroupMembershipResponse = (Invoke-RestMethod -Uri $GroupMembershipNextLink -Headers $($global:authHeader) -Method Get)
+            $GroupMembershipResponse = (Invoke-RestMethod -Uri $GroupMembershipNextLink -Headers $authHeader -Method Get)
             $GroupMembershipNextLink = $GroupMembershipResponse."@odata.nextLink"
             [array]$GroupMembership += $GroupMembershipResponse.value
             $GroupMembership
@@ -122,7 +135,7 @@ param
     $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)?`$filter=UserPrincipalName eq '$UserPrincipalName'&`$select=mail&`$count=true&ConsistencyLevel=eventual"
 
     try {
-        (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get).value
+        (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get).value
     }
     catch {   
         $ex = $_.Exception
@@ -139,55 +152,44 @@ param
 }
 
 function Write-Log{
-    param (
+	param (
         [Parameter(Mandatory=$True)]
         [array]$LogOutput,
         [Parameter(Mandatory=$True)]
         [string]$Path
-    )
-        $currentDate = (Get-Date -UFormat "%d-%m-%Y")
-        $currentTime = (Get-Date -UFormat "%T")
-        $logOutput = $logOutput -join (" ")
-        "[$currentDate $currentTime] $logOutput" | Out-File $Path -Append
+	)
+	    $currentDate = (Get-Date -UFormat "%d-%m-%Y")
+	    $currentTime = (Get-Date -UFormat "%T")
+	    $logOutput = $logOutput -join (" ")
+	    "[$currentDate $currentTime] $logOutput" | Out-File $Path -Append
 }
-######### End Functions #########
-
-######### Prerequisites #########
-
-# Check if Autopilot service is running break script if an URL is not reachable
-foreach ($Uri in $Uris){
-    $Response = ""
-    try {
-        $Response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive
-    }
-    catch {
-        Write-Error "$Uri not reachable"
-        exit
-    }
-}
-
-# SPO Credentials
-$automationCredential = Get-AutomationPSCredential -Name "AutomationCreds"
-$userName = $automationCredential.UserName  
-$securePassword = $automationCredential.Password
-$psCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userName, $securePassword 
-
-Connect-PnPOnline -Url $SiteURL -Credentials $psCredential
+# End Functions
 
 # Get all files from RemoveAutopilotDevice folder stop if no files are found
 $folderItems = Get-PnPFolderItem -FolderSiteRelativeUrl $removeFolderSiteRelativeUrl -ItemType File
 if (!$folderItems) {
     Write-Output "No file(s) found in the Autopilot remove folder"
-    exit
+    break
 }
 
-######### End prerequisites #########
+# Check if Autopilot service is running break script if an URL is not reachable
+foreach ($Uri in $Uris) {
+    $Response = ""
+    try {
+        $Response = Invoke-WebRequest -Uri $Uri -ErrorAction SilentlyContinue -UseBasicParsing -DisableKeepAlive
+    }
+    catch {
+        Write-Log -LogOutput ("$Uri not reachable.") -Path $LogFile
+        Write-Output "$Uri not reachable"
+        break
+    }
+}
 
 $totalDevices = 0
 $badDevices = @()
 $successDevice = @()
 $valuesToLookFor = @(
-    'SG_CMW_Autopilot'
+    'GSURO1-AutopilotImport'
 )
 
 ######### Start first stage: download and prepare files #########
@@ -226,18 +228,16 @@ foreach($item in $folderItems){
         $CsvToCheck = Import-Csv $PathCSVFile
 
         # Remove spaces in rows
-        $CsvToCheck | Foreach-Object {
-            $properties = $_.psobject.Properties
-
-            foreach ($p in $properties){
-                if(($null -ne $p.Value) -and ($p.Value -like "* *")){
-                    $p.Value = $p.Value.replace(' ','')
-                    Write-Log -LogOutput ("File $FileName property $($p.Name) fixed spaces.") -Path $LogFile
-                }
+        try {
+            $CsvToCheck | Foreach-Object {
+                $_.PSObject.Properties | Foreach-Object { $_.Value = $_.Value.Trim()}
+                Write-Log -LogOutput ("$FileName fixed spaces in rows.") -Path $LogFile 
             }
-        }
+        } catch {}
+
+        # Export CSV
         ($CsvToCheck | ConvertTo-Csv -NoTypeInformation) -replace '"' | set-content $PathCsvFile
-                
+        
         # Move the file after being processed
         Move-PnPFile -SourceUrl $item.ServerRelativeUrl -TargetUrl $targetLibraryUrl -AllowSchemaMismatch -Force -Overwrite -AllowSmallerVersionLimitOnDestination
     }
@@ -260,11 +260,11 @@ if(-not(!$CSVtoRemove)){
     # Necessary otherwise it will stop at 1000 rows
     $APDevices = @()
     $uri = "https://graph.microsoft.com/beta/deviceManagement/windowsAutopilotDeviceIdentities"
-    $APDevicesResponse = (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get)
+    $APDevicesResponse = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
     [array]$APDevices = $APDevicesResponse.value
     $APDevicesNextLink = $APDevicesResponse."@odata.nextLink"
     while ($null -ne $APDevicesNextLink) {
-        $APDevicesResponse = (Invoke-RestMethod -Uri $APDevicesNextLink -Headers $($global:authHeader) -Method Get)
+        $APDevicesResponse = (Invoke-RestMethod -Uri $APDevicesNextLink -Headers $authHeader -Method Get)
         $APDevicesNextLink = $APDevicesResponse."@odata.nextLink"
         [array]$APDevices += $APDevicesResponse.value
     }
@@ -295,7 +295,7 @@ if(-not(!$CSVtoRemove)){
 
     $devices = @()
     $devices = Import-CSV $checkedCombinedOutput
-            
+    
     foreach ($device in $devices){
         $deviceOwner = @()
         $groups = @()
@@ -323,21 +323,20 @@ if(-not(!$CSVtoRemove)){
                 # Get owner group memberships that match groups mentioned in $valuesToLookFor
                 $Groups = (Get-AADUserGroupMembership -upn $deviceOwner | Where-Object DisplayName -Match ($valuesToLookFor -join "|")).DisplayName
 
-                # Check if user is member of admin or paw group
-                $adminGroup = $Groups | Where-Object {$_ -like "*All"}
-                $pawGroup = $Groups | Where-Object {$_ -like "*PAW"}
-
-                # There is only one admin group
-                if((!$adminGroup) -and (!$pawGroup)){
-
-                    # Strip groups to check permissions if in $valuesToLookFor add to $adminGroup
-                    foreach ($Group in $Groups){
-                        $g = "{0}_{1}_{2}_{3}_{4}" -f $Group.Split('_')
-                        $gc = $g.Split("_")[-2] # Get country group
-                        $ge = $g.Split("_")[-1] # Get entity group
-                                
+                # Strip groups to check permissions if in $valuesToLookFor add to $adminGroup
+                foreach ($Group in $Groups){
+                    if (($Group -notlike "*All") `
+                    -and ($Group -notlike "*PAW")){
+                        $g = "{0}-{1}-{2}-{3}" -f $Group.Split('-')
+                        $gc = $g.Split("-")[-2] # Get country group
+                        $ge = $g.Split("-")[-1] # Get entity group
+                        
                         $gcCountry += $gc
                         $gcEntity += $ge
+                    }
+                    else {
+                        if($Group -like "*All"){$adminGroup += $Group}
+                        if($Group -like "*PAW"){$pawGroup += $Group}
                     }
                 }
 
@@ -350,18 +349,18 @@ if(-not(!$CSVtoRemove)){
                 else {
                     $p = $AutopilotDevice.GroupTag.Replace("STOLEN_","")
                     $obj | Add-Member -Name 'groupTag' -Type NoteProperty -Value $p
-                }
+                }                    
 
                 # When owner has permissions on grouptag or grouptag is emtpy go further
                 if (($tc -in $gcCountry) -and ($te -in $gcEntity) `
                 -or ((-not(!$p)) -and (-not(!$pawGroup))) `
                 -or (-not(!$adminGroup)) `
                 -or ($null -eq $AutopilotDevice.groupTag)){
-                            
+                    
                     # if managedDeviceId cannot be found it's not active in Intune go further               
                     $uri = "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices/$($AutopilotDevice.managedDeviceId)"
                     try {
-                        $md = (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get -ErrorAction SilentlyContinue).id
+                        $md = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get -ErrorAction SilentlyContinue).id
                     } catch {
                         $md = $null
                     }
@@ -375,7 +374,7 @@ if(-not(!$CSVtoRemove)){
                     else {
                         $obj | Add-Member -Name 'Error' -Type NoteProperty -Value "(Device is active in Intune)" 
                         $badDevices += $obj
-                                
+                        
                         Write-Log -LogOutput ("$serial cannot be removed is active in Intune with ID: $($AutopilotDevice.managedDeviceId).") -Path $LogFile
 
                         # Device only removed from removed list when device is still active in Intune
@@ -386,7 +385,7 @@ if(-not(!$CSVtoRemove)){
                 else {
                     $obj | Add-Member -Name 'Error' -Type NoteProperty -Value "(No permissions on current grouptag)"
                     $badDevices += $obj
-                            
+                    
                     Write-Log -LogOutput ("$serial no permissions $deviceOwner on $at.") -Path $LogFile
 
                     # Device owner does not have permissions on grouptag
@@ -398,7 +397,7 @@ if(-not(!$CSVtoRemove)){
         else {
             $obj | Add-Member -Name 'Error' -Type NoteProperty -Value "(Device not found)"
             $badDevices += $obj
-                    
+            
             Write-Log -LogOutput ("$Serial not found in Autopilot.") -Path $LogFile
 
             # Device not found in Autopilot
@@ -427,7 +426,7 @@ if(-not(!$CSVtoRemove)){
 }
 else {
     Write-log -LogOutput ("No valid CSV files found in remove folder.") -Path $LogFile 
-}
+}    
 
 # Total number of devices being processed
 Write-Output "$totalDevices devices being processed."
@@ -446,14 +445,14 @@ $CSS = @"
 <caption>Error(s) occured during Autopilot removal process</caption>
 <style>
 table, th, td {
-border: 1px solid black;
-border-collapse: collapse;
+  border: 1px solid black;
+  border-collapse: collapse;
 }
 th, td {
-padding: 5px;
+  padding: 5px;
 }
 th {
-text-align: left;
+  text-align: left;
 }
 </style>
 "@
@@ -463,7 +462,7 @@ if($badDevices.Count -ne 0){
 
     $u = ($badDevices | Select-Object Owner -Unique)
     $Users = $u.Owner
-            
+    
     foreach ($User in $Users){
         $UserDevices = $badDevices | Where-Object {$_.Owner -eq $User}
         $Body = @() 
@@ -485,14 +484,14 @@ if($badDevices.Count -ne 0){
         $Content = $content.Replace("<title>HTML TABLE</title>", $CSS)
 
         $UserMail = (Get-AADUserMail -UserPrincipalName $User).mail
-                    
+              
         if ($null -ne $UserMail){          
             $Subject = "Error occured during Autopilot removal for $User"
-                    
+            
             $Recipients = @(
                 $($UserMail)
             )
-                    
+            
             Send-Mail -Recipients $Recipients -Subject $Subject -Body $Content -MailSender $MailSender
             Write-Log -LogOutput ("Send error mail to $UserMail") -Path $LogFile
         } 
@@ -500,10 +499,10 @@ if($badDevices.Count -ne 0){
             Write-Log -LogOutput ("No emailaddress found for $User") -Path $LogFile
         }
     }
-                
-    $badDevices | Select-Object SerialNumber, GroupTag, Owner, Error  | Export-Csv -Path $RemovedErrorsPath -Delimiter "," -NoTypeInformation   
-    $dummy = Add-PnPFile -Path $RemovedErrorsPath -Folder $errorsFolderName
-    Write-Log -LogOutput ("Removal errors found creating log file and upload to SharePoint.") -Path $LogFile
+        
+	$badDevices | Select-Object SerialNumber, GroupTag, Owner, Error  | Export-Csv -Path $RemovedErrorsPath -Delimiter "," -NoTypeInformation   
+	$dummy = Add-PnPFile -Path $RemovedErrorsPath -Folder $errorsFolderName
+	Write-Log -LogOutput ("Removal errors found creating log file and upload to SharePoint.") -Path $LogFile
 }
 Else {
     Write-Log -LogOutput ("No bad devices found.") -Path $LogFile
@@ -517,13 +516,12 @@ $dummy = Add-PnPFile -Path $LogFile -Folder $LogFolderName
 
 # Clean remaining files from hybrid worker temp folder
 $ItemsToRemove = @($CheckedCombinedOutput,$DevicesDeletedPath,$RemovedErrorsPath,$LogFile)
-        
 foreach ($Item in $ItemsToRemove){
-    $testItem = Test-Path -Path $Item
-    if($testItem){Remove-item -Path $Item}
+    try {
+        Remove-item $Item -ErrorAction SilentlyContinue
+    } catch {
+        #Item already removed or cannot be found
+    }
 }
 
-foreach ($CSV in $CSVtoRemove){
-    $testCSV = Test-Path -Path ($pathCsvFiles + "\" + $CSV.FileName)
-    if($testCSV){Remove-item -path ($pathCsvFiles + "\" + $CSV.FileName)}
-}
+foreach ($CSV in $CSVtoRemove) {Remove-item ($pathCsvFiles + "\" + $CSV.FileName) -ErrorAction SilentlyContinue}
