@@ -10,8 +10,8 @@
 #                  It will update the grouptag when a device with the same serial already exist in Autopilot and the owner does have permission on using that grouptag.   
 #
 # Created by :     Ivo Uenk
-# Date       :     13-9-2023
-# Version    :     2.3
+# Date       :     3-5-2023
+# Version    :     2.4
 #=============================================================================================================================
 
 . .\GenMSALToken.ps1
@@ -20,11 +20,13 @@
 #Requires -Module  PnP.PowerShell, AutopilotUtility
 
 # Variables
+$MailSender = Get-AutomationVariable -Name "EmailAutomation"
+
 $PathCsvFiles = "$env:TEMP"
 $checkedCombinedOutput = "$pathCsvFiles\checkedcombinedoutput.csv"
-$SiteURL = Get-AutomationVariable -Name "SPOAutopilotSiteURL"
+$SiteURL = Get-AutomationVariable -Name "SiteUrlAP"
 $ShortSiteURL = "/" + $SiteURL.split("/",4)[-1]
-$importAutopilotDeviceFolderPath = Get-AutomationVariable -Name "SPOimportAutopilotDeviceFolderPath"
+$importAutopilotDeviceFolderPath = Get-AutomationVariable -Name "ReportFolderImportAP"
 $Uris = "login.live.com", "login.microsoftonline.com", "portal.manage.microsoft.com", "EnterpriseEnrollment.manage.microsoft.com", "EnterpriseEnrollment-s.manage.microsoft.com"
 
 $importFolderPath = $ShortSiteURL + $importAutopilotDeviceFolderPath + "/Import"
@@ -36,7 +38,6 @@ $importFolderSiteRelativeUrl = $importAutopilotDeviceFolderPath + "/Import"
 $DevicesImportedPath = $PathCsvFiles + "\" + "Autopilot-Import" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".csv"
 $ImportErrorsPath = $PathCsvFiles + "\" + "Autopilot-Import-Errors" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".csv"
 $LogFile = $PathCsvFiles + "\" + "Autopilot-Actions" + "-" + ((Get-Date).ToString("dd-MM-yyyy-HHmm")) + ".log"
-$MailSender = Get-AutomationVariable -Name "MailSender"
 
 # Declare checklist variables
 $Model = Get-AutomationVariable -Name "cModel"
@@ -48,26 +49,6 @@ $cCountry = $Country.Split(",")
 $Entity = Get-AutomationVariable -Name "cEntity"
 $cEntity = $Entity.Split(",")
 
-# Credentials
-try {
-    $AutomationCredential = Get-AutomationPSCredential -Name "AutomationCreds"
-    $userName = $AutomationCredential.UserName  
-    $securePassword = $AutomationCredential.Password
-    $psCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userName, $securePassword 
-
-    Connect-PnPOnline -Url $SiteURL -Credentials $psCredential
-} 
-catch {
-    Write-output "Cannot connect to Microsoft services"
-    break
-}
-
-# Check if AutopilotUtility module is installed
-if (-not(Get-Module -ListAvailable -Name AutopilotUtility)){
-    Write-output "Module AutopilotUtility does not exist"
-    break
-}
-
 ######### Functions #########
 function Update-GroupTag(){
 [cmdletbinding()]
@@ -77,7 +58,7 @@ param
     [Parameter(Mandatory=$true)] $groupTag
 
 )
-    
+            
     # Defining Variables
     $graphApiVersion = "beta"
     $Resource = "deviceManagement/windowsAutopilotDeviceIdentities"
@@ -90,7 +71,7 @@ param
 "@
 
     try {
-        $response = Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Post -Body $json -ContentType "application/json"
+        $response = Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Post -Body $json -ContentType "application/json"
         if ($id) {
             $response
         }
@@ -111,7 +92,7 @@ param
         break
     } 
 }
-    
+            
 function Get-AutoPilotImportedDevice(){
 [cmdletbinding()]
 param
@@ -129,7 +110,7 @@ param
         $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource"
     }
     try {
-        $response = Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get
+        $response = Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get
         if ($id) {
             $response
         }
@@ -186,7 +167,7 @@ param
 "@
 
     try {
-        Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Post -Body $json -ContentType "application/json"
+        Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Post -Body $json -ContentType "application/json"
     }
     catch {            
         # If already exists Invoke-RestMethod update for example group tag
@@ -215,7 +196,7 @@ param
     $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource/$id"
 
     try {
-        Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Delete | Out-Null
+        Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Delete | Out-Null
     }
     catch {   
         $ex = $_.Exception
@@ -239,7 +220,7 @@ param
     [Parameter(Mandatory=$true)] $LogFile,
     [Parameter(Mandatory=$false)] $orderIdentifier = ""
 )
-        
+                
     # When script fails due to technical issues Autopilot service old entries will not be removed and script wil hang
     $deviceStatusesInitial = Get-AutoPilotImportedDevice
     $deviceCountInitial = $deviceStatusesInitial.Length
@@ -326,7 +307,7 @@ param
 
     $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource"
     try {
-        $response = Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Post
+        $response = Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Post
         $response.Value
     }
     catch {
@@ -357,13 +338,13 @@ param
     try {
         # Necessary otherwise it will stop at 100 rows
         $GroupMembership = @()
-        $GroupMembershipResponse = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
+        $GroupMembershipResponse = (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get)
         [array]$GroupMembership = $GroupMembershipResponse.value
         $GroupMembership
 
         $GroupMembershipNextLink = $GroupMembershipResponse."@odata.nextLink"
         while ($null -ne $GroupMembershipNextLink) {
-            $GroupMembershipResponse = (Invoke-RestMethod -Uri $GroupMembershipNextLink -Headers $authHeader -Method Get)
+            $GroupMembershipResponse = (Invoke-RestMethod -Uri $GroupMembershipNextLink -Headers $($global:authHeader) -Method Get)
             $GroupMembershipNextLink = $GroupMembershipResponse."@odata.nextLink"
             [array]$GroupMembership += $GroupMembershipResponse.value
             $GroupMembership
@@ -395,7 +376,7 @@ param
     $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)?`$filter=UserPrincipalName eq '$UserPrincipalName'&`$select=mail&`$count=true&ConsistencyLevel=eventual"
 
     try {
-        (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get).value
+        (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get).value
     }
     catch {   
         $ex = $_.Exception
@@ -418,10 +399,10 @@ param (
     [Parameter(Mandatory=$True)]
     [string]$Path
 )
-	$currentDate = (Get-Date -UFormat "%d-%m-%Y")
-	$currentTime = (Get-Date -UFormat "%T")
-	$logOutput = $logOutput -join (" ")
-	"[$currentDate $currentTime] $logOutput" | Out-File $Path -Append
+    $currentDate = (Get-Date -UFormat "%d-%m-%Y")
+    $currentTime = (Get-Date -UFormat "%T")
+    $logOutput = $logOutput -join (" ")
+    "[$currentDate $currentTime] $logOutput" | Out-File $Path -Append
 }
 
 function Get-HardwareInfo(){
@@ -442,7 +423,7 @@ Param(
 
         try {
             $h = ConvertFrom-AutopilotHash -Hash $device.'Hardware Hash'
-            
+                    
             # Necessary because otherwhise it cannot be handled by unicode (remove special characters)
             $SmbiosSerial = $h.SmbiosSerial -replace '[^\p{L}\p{Nd}]', ''
 
@@ -495,25 +476,43 @@ Param(
 }
 ######### End Functions #########
 
-# Get all files from ImportAutopilotDevice folder stop if no files are found
-$folderItems = Get-PnPFolderItem -FolderSiteRelativeUrl $importFolderSiteRelativeUrl -ItemType File
-if (!$folderItems) {
-    Write-Output "No file(s) found in the Autopilot import folder"
-    break
+######### Prerequisites #########
+
+# Check if AutopilotUtility module is installed
+try {
+    Import-Module -name AutopilotUtility
+}
+catch {
+    exit
 }
 
 # Check if Autopilot service is running break script if an URL is not reachable
 foreach ($Uri in $Uris){
     $Response = ""
     try {
-        $Response = Invoke-WebRequest -Uri $Uri -ErrorAction SilentlyContinue -UseBasicParsing -DisableKeepAlive
+        $Response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive
     }
     catch {
-        Write-Log -LogOutput ("$Uri not reachable.") -Path $LogFile
-        Write-Output "$Uri not reachable"
-        break
+        exit
     }
 }
+
+# SPO Credentials
+$automationCredential = Get-AutomationPSCredential -Name "AutomationCreds"
+$userName = $automationCredential.UserName  
+$securePassword = $automationCredential.Password
+$psCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userName, $securePassword 
+
+Connect-PnPOnline -Url $SiteURL -Credentials $psCredential
+
+# Get all files from ImportAutopilotDevice folder stop if no files are found
+$folderItems = Get-PnPFolderItem -FolderSiteRelativeUrl $importFolderSiteRelativeUrl -ItemType File
+if (!$folderItems) {
+    Write-Output "No file(s) found in the Autopilot import folder"
+    exit
+}
+
+######### End prerequisites #########
 
 $totalDevices = 0
 $correctDevices = @()
@@ -523,7 +522,7 @@ $global:updatedDevice = @()
 $global:errorDevice = @()
 $global:softErrorDeviceAssignedOtherTenant = @()
 $global:valuesToLookFor = @(
-    'SG_CMW_Autopilot'
+    'GSURO1-AutopilotImport'
 )
 
 ######### Start first stage: download and prepare files #########
@@ -562,22 +561,18 @@ foreach($item in $folderItems){
         $CsvToCheck = Import-Csv $PathCSVFile
 
         # Remove spaces in rows
-        try {
-            $CsvToCheck | Foreach-Object {
-                $_.PSObject.Properties | Foreach-Object { $_.Value = $_.Value.Trim()}
-                Write-Log -LogOutput ("$FileName fixed spaces in rows.") -Path $LogFile 
+        $CsvToCheck | Foreach-Object {
+            $properties = $_.psobject.Properties
+
+            foreach ($p in $properties){
+                if(($null -ne $p.Value) -and ($p.Value -like "* *")){
+                    $p.Value = $p.Value.replace(' ','')
+                    Write-Log -LogOutput ("File $FileName property $($p.Name) fixed spaces.") -Path $LogFile
+                }
             }
-        } catch {}
-
-        # Export CSV
+        }
         ($CsvToCheck | ConvertTo-Csv -NoTypeInformation) -replace '"' | set-content $PathCsvFile
-
-        # Remove spaces in header
-        $a = Get-Content $PathCsvFile
-        $a[0] = $a[0] -replace "Group Tag ", "Group Tag"
-        $a | Set-Content $PathCsvFile
-        Write-Log -LogOutput ("File $FileName checked for spaces.") -Path $LogFile
-        
+                
         # Move the file after being processed
         Move-PnPFile -SourceUrl $item.ServerRelativeUrl -TargetUrl $targetLibraryUrl -AllowSchemaMismatch -Force -Overwrite -AllowSmallerVersionLimitOnDestination
     }
@@ -610,11 +605,11 @@ if(-not(!$CSVtoImport)){
     # Necessary otherwise it will stop at 1000 rows
     $APDevices = @()
     $uri = "https://graph.microsoft.com/beta/deviceManagement/windowsAutopilotDeviceIdentities"
-    $APDevicesResponse = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
+    $APDevicesResponse = (Invoke-RestMethod -Uri $uri -Headers $($global:authHeader) -Method Get)
     [array]$APDevices = $APDevicesResponse.value
     $APDevicesNextLink = $APDevicesResponse."@odata.nextLink"
     while ($null -ne $APDevicesNextLink) {
-        $APDevicesResponse = (Invoke-RestMethod -Uri $APDevicesNextLink -Headers $authHeader -Method Get)
+        $APDevicesResponse = (Invoke-RestMethod -Uri $APDevicesNextLink -Headers $($global:authHeader) -Method Get)
         $APDevicesNextLink = $APDevicesResponse."@odata.nextLink"
         [array]$APDevices += $APDevicesResponse.value
     }
@@ -623,11 +618,12 @@ if(-not(!$CSVtoImport)){
     Set-Content -Path $CheckedCombinedOutput -Value "Device Serial Number,Windows Product ID,Hardware Hash,Group Tag,Owner" -Encoding Unicode
 
     foreach ($CSV in $CSVtoImport){
-    $global:Groups = @()
-    $global:ownerCSV = @()
-    $global:gcCountry = @()
-    $global:gcEntity = @()
-    $global:adminGroup = @()
+        $global:Groups = @()
+        $global:ownerCSV = @()
+        $global:gcCountry = @()
+        $global:gcEntity = @()
+        $global:adminGroup = @()
+        $global:pawGroup = @()
 
         # Get info from CSV files
         $pathCSV = get-childitem ($pathCsvFiles + "\" + $CSV.FileName)
@@ -638,18 +634,21 @@ if(-not(!$CSVtoImport)){
         # Get owner group memberships that match groups mentioned in $global:valuesToLookFor
         $global:Groups = (Get-AADUserGroupMembership -upn $global:ownerCSV | Where-Object DisplayName -Match ($global:valuesToLookFor -join "|")).DisplayName
 
-        # Strip groups to check permissions if in $global:valuesToLookFor add to $global:adminGroup
-        foreach ($Group in $global:Groups){
-            if ($Group -notlike "*All"){
+        # Check if user is member of admin or paw group
+        $global:adminGroup = $global:Groups | Where-Object {$_ -like "*All"}
+        $global:pawGroup = $global:Groups | Where-Object {$_ -like "*PAW"}
+
+        # There is only one admin group
+        if((!$global:adminGroup) -and (!$global:pawGroup)){
+                    
+            # Strip groups to check permissions
+            foreach ($Group in $global:Groups){
                 $g = "{0}_{1}_{2}_{3}_{4}" -f $Group.Split('_')
                 $gc = $g.Split("_")[-2] # Get country group
                 $ge = $g.Split("_")[-1] # Get entity group
-                
+                        
                 $global:gcCountry += $gc
                 $global:gcEntity += $ge
-            }
-            else {
-                $global:adminGroup += $Group
             }
         }
 
@@ -670,16 +669,24 @@ if(-not(!$CSVtoImport)){
 
             # Check if group tag is found
             if(-not(!$device.'Group Tag')){
-                $at = $($device.'Group Tag').Replace("STOLEN_","")
-                $l = "{0}-{1}-{2}-{3}" -f $at.Split('-')
-                $c = $at.Split("-")[-2] # Get country tag
-                $e = $at.Split("-")[-1] # Get entity tag
+                if($($device.'Group Tag') -notin $cLabel){
+                    $at = $($device.'Group Tag').Replace("STOLEN_","")
+                    $l = "{0}-{1}-{2}-{3}-{4}" -f $at.Split('-')
+                    $c = $at.Split("-")[-2] # Get country tag
+                    $e = $at.Split("-")[-1] # Get entity tag
+                }
+                else {
+                    $p = $($device.'Group Tag')
+                }  
 
                 # Check if group tag is formatted correctly
-                if (($l -in $cLabel) -and ($c -in $cCountry) -and ($e -in $cEntity)){
+                if ((($l -in $cLabel) -and ($c -in $cCountry) -and ($e -in $cEntity)) `
+                -or ($($device.'Group Tag') -in $cLabel)){
 
                     # Check if the owner has permissions on new group tag
-                    if (($c -in $global:gcCountry) -and ($e -in $global:gcEntity) -or (-not(!$global:adminGroup))){
+                    if (($c -in $global:gcCountry) -and ($e -in $global:gcEntity) `
+                    -or ((-not(!$p)) -and (-not(!$global:pawGroup))) `
+                    -or (-not(!$global:adminGroup))){
                         
                         # Check if device already exist in Autopilot if so try to update the group tag
                         $AutopilotDevices = $APDevices | Where-Object {$_.SerialNumber -eq $Serial}
@@ -690,11 +697,19 @@ if(-not(!$CSVtoImport)){
 
                                 # Check if user has permissions on $AutopilotDevice.groupTag to prevent hijacking device
                                 $apt = $AutopilotDevice.groupTag
-                                $aptc = $apt.Split("-")[-2] # Get country tag
-                                $apte = $apt.Split("-")[-1] # Get entity tag
+
+                                if($apt -notin $cLabel){
+                                    $aptc = $apt.Split("-")[-2] # Get country tag
+                                    $apte = $apt.Split("-")[-1] # Get entity tag
+                                }
+                                else {
+                                    $aptp = $apt
+                                }
 
                                 # Check if the owner has permissions on the current group tag
-                                if (($aptc -in $global:gcCountry) -and ($apte -in $global:gcEntity) -or (-not(!$global:adminGroup))){
+                                if (($aptc -in $global:gcCountry) -and ($apte -in $global:gcEntity) `
+                                -or ((-not(!$aptp)) -and (-not(!$global:pawGroup))) `
+                                -or (-not(!$global:adminGroup))){
                             
                                     # Check if current group tag is different from new group tag
                                     if ($AutopilotDevice.groupTag -ne $($device.'Group Tag')){                              
@@ -790,7 +805,7 @@ if(-not(!$CSVtoImport)){
                 $global:badDevices += $obj
 
                 (Get-Content $checkedCombinedOutput) | Where-Object {$_ -notmatch $Serial} | Set-Content $checkedCombinedOutput -Encoding Unicode
-                Write-Log -LogOutput ("$Serial error $ErrorModel$ErrorTMP removed from import list.") -Path $LogFile
+                Write-Log -LogOutput ("$Serial error $ErrorModel($($AutopilotImport.Model))$ErrorTMP removed from import list.") -Path $LogFile
             }
         }
                 
@@ -886,14 +901,14 @@ $CSS = @"
 <caption>Error(s) occured during Autopilot import process</caption>
 <style>
 table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
+border: 1px solid black;
+border-collapse: collapse;
 }
 th, td {
-  padding: 5px;
+padding: 5px;
 }
 th {
-  text-align: left;
+text-align: left;
 }
 </style>
 "@
@@ -903,7 +918,7 @@ if($global:badDevices.Count -ne 0){
 
     $u = ($global:badDevices | Select-Object Owner -Unique)
     $Users = $u.Owner
-    
+            
     foreach ($User in $Users){
         $UserDevices = $global:badDevices | Where-Object {$_.Owner -eq $User}
         $Body = @() 
@@ -911,7 +926,7 @@ if($global:badDevices.Count -ne 0){
         foreach ($UserDevice in $UserDevices){
             try {$TPMVersion = $UserDevice.TPMVersion.Split('-')[1]}
             catch {$TPMVersion = $null}
-            
+                    
             $obj = new-object psobject -Property @{
                 SerialNumber = $UserDevice.SerialNumber
                 Model = $UserDevice.model
@@ -930,10 +945,10 @@ if($global:badDevices.Count -ne 0){
         $Content = $content.Replace("<title>HTML TABLE</title>", $CSS)
 
         $UserMail = (Get-AADUserMail -UserPrincipalName $User).mail
-              
+                    
         if ($null -ne $UserMail){          
             $Subject = "Error occured during Autopilot import for $User"
-            
+                    
             $Recipients = @(
                 $($UserMail)
             )
@@ -946,9 +961,9 @@ if($global:badDevices.Count -ne 0){
         }
     }
 
-	$global:badDevices | Select-Object SerialNumber, WindowsProductID, Hash, Model, TPMVersion, GroupTag, Owner, Error  | Export-Csv -Path $ImportErrorsPath -Delimiter "," -NoTypeInformation   
-	$dummy = Add-PnPFile -Path $ImportErrorsPath -Folder $errorsFolderPath
-	Write-Log -LogOutput ("Import errors found creating log file and upload to $LogFolderPath.") -Path $LogFile
+    $global:badDevices | Select-Object SerialNumber, WindowsProductID, Hash, Model, TPMVersion, GroupTag, Owner, Error  | Export-Csv -Path $ImportErrorsPath -Delimiter "," -NoTypeInformation   
+    $dummy = Add-PnPFile -Path $ImportErrorsPath -Folder $errorsFolderPath
+    Write-Log -LogOutput ("Import errors found creating log file and upload to $LogFolderPath.") -Path $LogFile
 }
 else {
     Write-Log -LogOutput ("No bad devices found.") -Path $LogFile
@@ -960,13 +975,14 @@ $dummy = Add-PnPFile -Path $LogFile -Folder $LogFolderPath
 
 # Clean remaining files from hybrid worker temp folder
 $ItemsToRemove = @($CheckedCombinedOutput,$DevicesImportedPath,$ImportErrorsPath,$LogFile)
+  
 foreach ($Item in $ItemsToRemove){
-    try {
-        Remove-item $Item -ErrorAction SilentlyContinue
-    } catch {
-        #Item already removed or cannot be found
-    }
+    $testItem = Test-Path -Path $Item
+    if($testItem){Remove-item -Path $Item}
 }
 
-foreach ($CSV in $CSVtoImport) {Remove-item ($pathCsvFiles + "\" + $CSV.FileName) -ErrorAction SilentlyContinue}
+foreach ($CSV in $CSVtoImport){
+    $testCSV = Test-Path -Path ($pathCsvFiles + "\" + $CSV.FileName)
+    if($testCSV){Remove-item -path ($pathCsvFiles + "\" + $CSV.FileName)}
+}
 ######### End fifth stage: uploading and cleaning files #########
