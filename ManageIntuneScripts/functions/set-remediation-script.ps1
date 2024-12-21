@@ -1,12 +1,27 @@
-function set-remediation-script {
+#=============================================================================================================================
+# Script Name:     set-remediation-script.ps1
+# Description:     Run this function to create, update or remove Intune remediation scripts. 
+#   
+# Notes      :     It's necessary to use the vars.txt with the following info:
+#                  displayName=Testnew
+#                  nDisplayName=
+#                  description=Testnew
+#                  detectScript=VirtualizationBasedProtection_Detect.ps1
+#                  remediateScript=VirtualizationBasedProtection_Remediate.ps1
+#                  runAsAccount=system
+#                  runAs32Bit=false
+#                  assignedGroups=SG-CL-TESTGROUP;once;1;1:0:0;2024-02-29,SG-CL-CMW-L-A-NL-00;hourly;1;include;W11
+#                  ,SG-CL-CMW-L-P-NL-00;daily;1;1:0:0;include;W10
+#                  excludedGroups=
+#                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00
+#
+# Created by :     Ivo Uenk
+# Date       :     25-11-2024
+# Version    :     1.0
+#=============================================================================================================================
 
-    <#
-    .DESCRIPTION
-    Run this function to create, update or remove Intune remediation scripts. This function script is addressed in pipe set-remediation-script.yml.
-    Initial Author: Ivo Uenk (udirection.com).
-    The script is provided "AS IS" with no warranties.
-    #>
-    
+function set-remediation-script {
+   
     param(
         [Parameter(Mandatory=$true)]
         [ValidateSet("create", "update", "remove")] 
@@ -453,40 +468,61 @@ function set-remediation-script {
                             
                 $nAssignedGroups = @()
                 foreach ($group in $assignedGroups){
-                
-                    $sg = $group.Split(";")        
+                    
+                    ### IMPORTANT FOLLOW THE CORRECT ORDER OF PARAMETERS IN VARS.TXT ###
+                    $sg = @()
+                    $sg = $group.Split(";")
+                    
+                    # Need to create trick to check if date is empty
+                    $y = (Get-Date).year
                 
                     # Important to empty it
                     $groupId = @()
                     $groupId = $(Get-Group -displayName $sg[0]).id
-                    
-                    # Need to create trick to check if date is empty
-                    $y = (Get-Date).year
-
+                
+                    # Parameters that can be different
+                    $time = $null
+                    $date = $null
+                    $filterType = $null
+                    $filterName = $null
+                
+                    if($sg[3] -like "*:0:0"){
+                        $time = $sg[3]
+                    } elseif(($sg[3] -eq "include") -or ($sg[3] -eq "exclude")){
+                        $time = $null
+                        $filterType = $sg[3]
+                    } else {
+                        $time = $null
+                        $filterType = $null
+                    }
+                
                     if($sg[4] -like "$y-*"){
                         $date = $sg[4]
-                        $sg[4] = $null
-                    }
-                    else {
+                    } elseif(($sg[4] -eq "include") -or ($sg[4] -eq "exclude")){
                         $date = $null
+                        $filterType = $sg[4]   
+                    } else {
+                        $filterName = $sg[4]   
                     }
+                
+                    if($null -ne $sg[5]){$filterName = $sg[5]}
                 
                     $groupObject = [pscustomobject]@{
                         groupId=$groupId
                         displayName=$sg[0]
                         runSchedule=$sg[1]
                         interval=$sg[2]
-                        time=$sg[3]
+                        time=$time
                         date=$date
-                        filterType=$sg[4]
-                        filterName=$sg[5]
+                        filterType=$filterType
+                        filterName=$filterName
                     }
                     $nAssignedGroups += $groupObject # Assigned groups output
                 }
                     
                 foreach ($nGroup in $nAssignedGroups){                    
 
-                    if(-not(!$groupId)){
+                    if($null -ne $($nGroup.groupId)){
 
                         # check schedule here
                         if((-not(!$($nGroup.runSchedule))) -and (-not(!$($nGroup.interval)))){
@@ -658,7 +694,7 @@ function set-remediation-script {
                         }
 
                         $g.deviceHealthScriptAssignments += $ga
-                        Write-Host "##[debug] group [$($nGroup.displayName)] schedule [$($ng.runSchedule)] interval [$($ng.interval)] time [$($ng.time)] filterType [$($ng.filterType)] filterName [$($ng.filterName)] added as assigned group to [$($createdRemediationScript.displayName)]."
+                        Write-Host "##[debug] group [$($nGroup.displayName)] schedule [$($ng.runSchedule)] interval [$($ng.interval)] time [$($ng.time)] date [$($ng.date)] filterType [$($ng.filterType)] filterName [$($ng.filterName)] added as assigned group to [$($createdRemediationScript.displayName)]."
                     }
                 }
 

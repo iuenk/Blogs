@@ -1,11 +1,23 @@
-function set-device-script {
+#=============================================================================================================================
+# Script Name:     set-device-script.ps1
+# Description:     Run this function to create, update or remove Intune device scripts. 
+#   
+# Notes      :     It's necessary to use the vars.txt with the following info:
+#                  displayName=Company Portal - installation script test
+#                  nDisplayName=
+#                  description=
+#                  fileName=Install-CompanyPortal.ps1
+#                  runAsAccount=system
+#                  runAs32Bit=false
+#                  includedGroups=SG-CL-CMW-L-A-NL-00,SG-CL-TESTGROUP
+#                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00 
+#
+# Created by :     Ivo Uenk
+# Date       :     25-11-2024
+# Version    :     1.0
+#=============================================================================================================================
 
-    <#
-    .DESCRIPTION
-    Run this function to create, update or remove Intune device scripts. This function script is addressed in pipe set-device-script.yml.
-    Initial Author: Ivo Uenk (udirection.com).
-    The script is provided "AS IS" with no warranties.
-    #>
+function set-device-script {
     
     param(
         [Parameter(Mandatory=$true)]
