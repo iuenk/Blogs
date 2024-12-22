@@ -1,5 +1,4 @@
-﻿# Convert KeyVault SecureString to Plaintext
-$clientId = "<clientId>"
+﻿$clientId = "<clientId>"
 $secret = "<clientSecret>"
 $tenantId = "<tenantId>"
 
@@ -12,12 +11,12 @@ try {
 	}
 
 	# Acquire a token as demonstrated in the previous examples
-	$token = Get-MsalToken @connectionDetails
+	$global:token = Get-MsalToken @connectionDetails
 
-	$authHeader = @{
-		'Authorization' = $token.CreateAuthorizationHeader()
+	$global:authHeader = @{
+		'Authorization' = $global:token.CreateAuthorizationHeader()
 	}
-	return $authHeader
+	return $global:authHeader
 }
 Catch {
 	write-host $_.Exception.Message -f Red
