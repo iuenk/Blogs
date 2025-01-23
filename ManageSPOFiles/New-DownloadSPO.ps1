@@ -19,25 +19,33 @@ Function New-DownloadSPO {
         .PARAMETER FileExtension
         Mandatory to specify the files based on extension and download those (can be all kind of extensions no limitations).
 
+        .PARAMETER DriveName
+        Mandatory to specify the DriveName like Documents or Automation please check the SPO URL text after the site name.
+        It is the first location metnioned after the SiteName. Examples below:
+        https://<tenant>.sharepoint.com/sites/<SiteName>/Shared%20Documents = Documents
+        https://<tenant>.sharepoint.com/sites/<SiteName>/Automation = Automation
+
         .PARAMETER SourcePath
         Optional to declare the SharePoint source of the file, by default the file will be downloaded from the root.
 
         .PARAMETER MovePath
-        Optional to move downloaded files from one SharePoint Online folder to another. 
+        Optional to move downloaded files from one SharePoint Online folder to another (only works in within same DriveName).
         The files will be renamed with a timestamp to avoid conflicts.
 
         .NOTES
         AUTHOR   : Ivo Uenk
-        CREATED  : 11/12/2024
+        CREATED  : 23/01/2025
 
         .EXAMPLE
         $TenantName = "ucorponline"
         $SiteName = "Intune"
         $SourcePath = "ImportAutopilotDevice/Import"
+        $DriveName = "Documents"
         $DestinationPath = "C:\Temp"
         $FileExtension = "csv"
         $MovePath = "ImportAutopilotDevice/Sources"
-        New-DownloadSPO -TenantName $TenantName -SiteName $SiteName -SourcePath $SourcePath -DestinationPath $DestinationPath -FileExtension $FileExtension -MovePath $MovePath
+        New-DownloadSPO -TenantName $TenantName -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName
+        New-DownloadSPO -TenantName $TenantName -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName -SourcePath $SourcePath -MovePath $MovePath
     #>
 
 	param(
@@ -45,6 +53,7 @@ Function New-DownloadSPO {
         [Parameter(Mandatory=$true)]$SiteName,
         [Parameter(Mandatory=$true)]$DestinationPath,
         [Parameter(Mandatory=$true)]$FileExtension,
+        [Parameter(Mandatory=$true)]$DriveName,
         [Parameter(Mandatory=$false)]$SourcePath,
         [Parameter(Mandatory=$false)]$MovePath
 	)
@@ -52,14 +61,14 @@ Function New-DownloadSPO {
     try {
         $global:collItems = @()
 
-        $LibraryURL = "https://$($tenantName).sharepoint.com/sites/$($siteName)/Shared%20Documents"
+        $LibraryURL = "https://$($tenantName).sharepoint.com/sites/$($siteName)/$($DriveName)"
         
         # Retrieve necessary info
         $Uri = "https://graph.microsoft.com/v1.0/sites/$($TenantName).sharepoint.com:/sites/$($SiteName)`?$select=id"
         $siteId = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).id).Split(",")[1]
         
         $Uri = "https://graph.microsoft.com/v1.0/sites/$($siteId)/drives"  
-        $DriveId = (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value.id
+        $DriveId = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -eq $DriveName}).id
 
         if($MovePath){
             Write-output "MovePath specified [$MovePath]."
