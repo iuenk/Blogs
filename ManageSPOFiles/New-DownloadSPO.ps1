@@ -6,9 +6,6 @@ Function New-DownloadSPO {
         .DESCRIPTION
         Can be used to download files from SharePoint Online locations.
 
-        .PARAMETER TenantName
-        Mandatory to specify the tenant name.
-
         .PARAMETER SiteName
         Mandatory to specify the SharePoint site name.
 
@@ -28,6 +25,9 @@ Function New-DownloadSPO {
         .PARAMETER SourcePath
         Optional to declare the SharePoint source of the file, by default the file will be downloaded from the root.
 
+        .PARAMETER FileName
+        Optional to download only the specified file from SharePoint.
+
         .PARAMETER MovePath
         Optional to move downloaded files from one SharePoint Online folder to another (only works in within same DriveName).
         The files will be renamed with a timestamp to avoid conflicts.
@@ -37,23 +37,24 @@ Function New-DownloadSPO {
         CREATED  : 23/01/2025
 
         .EXAMPLE
-        $TenantName = "ucorponline"
         $SiteName = "Intune"
         $SourcePath = "ImportAutopilotDevice/Import"
+        $FileName = "DevicesImported.csv"
         $DriveName = "Documents"
         $DestinationPath = "C:\Temp"
         $FileExtension = "csv"
         $MovePath = "ImportAutopilotDevice/Sources"
-        New-DownloadSPO -TenantName $TenantName -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName
-        New-DownloadSPO -TenantName $TenantName -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName -SourcePath $SourcePath -MovePath $MovePath
+        New-DownloadSPO -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName
+        New-DownloadSPO -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName -SourcePath $SourcePath -FileName $FileName
+        New-DownloadSPO -SiteName $SiteName -DestinationPath $DestinationPath -FileExtension $FileExtension -DriveName $DriveName -SourcePath $SourcePath -MovePath $MovePath
     #>
 
 	param(
-        [Parameter(Mandatory=$true)]$TenantName,
         [Parameter(Mandatory=$true)]$SiteName,
         [Parameter(Mandatory=$true)]$DestinationPath,
         [Parameter(Mandatory=$true)]$FileExtension,
         [Parameter(Mandatory=$true)]$DriveName,
+        [Parameter(Mandatory=$false)]$FileName,
         [Parameter(Mandatory=$false)]$SourcePath,
         [Parameter(Mandatory=$false)]$MovePath
 	)
@@ -82,13 +83,20 @@ Function New-DownloadSPO {
 
             $Uri = "https://graph.microsoft.com/v1.0/sites/$($siteId)/drives/$DriveId/items/root:/$($sourcePath)"
             $FolderId = (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).id
-    
-            # Get files in folder based on extension
-            Write-output "Extension specified [$FileExtension]."
-            $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$FolderId/children"
-            $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -like "*.$FileExtension"})                      
 
-            if($FolderItems){
+            $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$FolderId/children"
+    
+            if(-not(!$FileName)){
+                Write-output "FileName specified [$FileName] with extension [$FileExtension]."
+                $FileName = $($FileName + "." + $FileExtension)
+                $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -eq $FileName})
+            }
+            else {
+                Write-output "Get all files based on extension specified [$FileExtension]."
+                $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -like "*.$FileExtension"})                     
+            }                     
+
+            if(-not(!$FolderItems)){
                 foreach ($item in $FolderItems){
                     # Download files
                     $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"  
@@ -126,11 +134,20 @@ Function New-DownloadSPO {
         else {
             # Start process download file in root
             Write-Output "No SourcePath specified continue process root [$LibraryURL]."
-    
-            $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root/children"
-            $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -like "*.$FileExtension"})             
 
-            if($FolderItems){
+            $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root/children"
+    
+            if(-not(!$FileName)){
+                Write-output "FileName specified [$FileName] with extension [$FileExtension]."
+                $FileName = $($FileName + "." + $FileExtension)
+                $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -eq $FileName})
+            }
+            else {
+                Write-output "Get all files based on extension specified [$FileExtension]."
+                $FolderItems = ((Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value | Where-Object {$_.name -like "*.$FileExtension"})                    
+            }          
+
+            if(-not(!$FolderItems)){
                 foreach ($item in $FolderItems){
                     # Download files
                     $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"  
