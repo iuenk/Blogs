@@ -112,7 +112,7 @@ Function New-DownloadSPO {
 
                     # Move file to adjacent folder (name must be unique otherwise Name already exists error)                   
                     if($MoveFolderId){
-                        $ItemName = $(Get-Date -format "yyyymmdd-HHmm") + "_" + $($item.name)
+                        $ItemName = $(Get-Date -format "yyyyMMdd-HHmm") + "_" + $($item.name)
                         $Body = @{
                             "parentReference" = @{
                                 "id" = "$MoveFolderId"
@@ -163,7 +163,7 @@ Function New-DownloadSPO {
     
                     # Move file to adjacent folder (name must be unique otherwise Name already exists error)
                     if($MoveFolderId){
-                        $ItemName = $(Get-Date -format "yyyymmdd-HHmm") + "_" + $($item.name)
+                        $ItemName = $(Get-Date -format "yyyyMMdd-HHmm") + "_" + $($item.name)
                         $Body = @{
                             "parentReference" = @{
                                 "id" = "$MoveFolderId"
