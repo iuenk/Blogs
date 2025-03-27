@@ -13,8 +13,8 @@
 #                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00 
 #
 # Created by :     Ivo Uenk
-# Date       :     25-11-2024
-# Version    :     1.0
+# Date       :     27-03-2025
+# Version    :     1.1
 #=============================================================================================================================
 
 function set-device-script {
@@ -35,6 +35,8 @@ function set-device-script {
         [string]$displayName,
         [Parameter(Mandatory=$true)]
         [string]$publisher,
+        [Parameter(Mandatory=$true)]
+        [string]$environment,
         [Parameter(Mandatory=$false)]
         [string]$cDisplayName,
         [Parameter(Mandatory=$false)]
@@ -369,7 +371,7 @@ function set-device-script {
             break
         }
 
-        Write-Host "##[debug] action [$action] for device script [$displayName] initiated by [$publisher]."
+        Write-Host "##[debug] action [$action] for device script [$displayName] initiated by [$publisher] on environment [$environment]."
         Write-Host "##[debug] description [$description]."
         Write-Host "##[debug] update displayName [$nDisplayName]."               
         Write-Host "##[debug] device script [$scriptPath]."
@@ -742,7 +744,13 @@ function set-device-script {
                 }
 
                 # Update group assignments
-                Set-deviceManagementScriptAssignment -deviceManagementScriptId $($deviceScript.id) -json $groupsJSON
+                if((-not(!$nIncludedGroups)) -or (-not(!$cGroupAssignments))){
+                    $groupsJSON = $g | ConvertTo-Json -depth 32
+                    Set-deviceManagementScriptAssignment -deviceManagementScriptId $($deviceScript.id) -json $groupsJSON
+                }
+                else {
+                    Set-deviceManagementScriptAssignment -deviceManagementScriptId $($deviceScript.id) -json $groupsJSON
+                }
             }
             else {
                 throw "device script with displayName [$displayName] does not exist."              
