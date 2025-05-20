@@ -98,9 +98,9 @@ Function New-DownloadSPO {
 
             if(-not(!$FolderItems)){
                 foreach ($item in $FolderItems){
-                    # Download files
-                    $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"  
-                    Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET -OutFile $($DestinationPath + "\" + $($item.name)) -ContentType 'multipart/form-data'
+                    # Download files must be invoke webrequest instead of graph due to memory handling downloading large files
+                    $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"
+                    Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method GET -OutFile $($DestinationPath + "\" + $($item.name)) -ContentType 'multipart/form-data'
 
                     $obj = new-object psobject -Property @{
                         FileName = $($item.name)
@@ -149,9 +149,9 @@ Function New-DownloadSPO {
 
             if(-not(!$FolderItems)){
                 foreach ($item in $FolderItems){
-                    # Download files
-                    $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"  
-                    Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET -OutFile $($DestinationPath + "\" + $($item.name)) -ContentType 'multipart/form-data'
+                    # Download files must be invoke webrequest instead of graph due to memory handling downloading large files
+                    $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)/content"
+                    Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method GET -OutFile $($DestinationPath + "\" + $($item.name)) -ContentType 'multipart/form-data'
 
                     $obj = new-object psobject -Property @{
                         FileName = $($item.name)
