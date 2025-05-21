@@ -78,9 +78,8 @@ Function New-UploadSPO {
                 # No specific DestinationPath specified file need to be uploaded in root
                 Write-Output "No DestinationPath specified continue process root [$LibraryURL]."
 
-                $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($FileName):/content"
-
                 # Start upload file must be invoke webrequest instead of graph due to memory handling uploading large files
+                $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($FileName):/content"
                 (Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
 
                 Write-output "File [$SourcePath] uploaded to destination [$($LibraryURL)]."
