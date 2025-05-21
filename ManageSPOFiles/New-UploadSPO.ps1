@@ -68,9 +68,9 @@ Function New-UploadSPO {
                 # Start process upload file to DestinationPath
                 Write-output "DestinationPath specified [$DestinationPath]."
 
-                # Start upload file 
+                # Start upload file must be invoke webrequest instead of graph due to memory handling uploading large files
                 $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($DestinationPath)/$($FileName):/content"
-                (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
+                (Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
 
                 Write-output "File [$SourcePath] uploaded to destination [$($LibraryURL + "/" + $DestinationPath)]."
             }
@@ -80,8 +80,8 @@ Function New-UploadSPO {
 
                 $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($FileName):/content"
 
-                # Start upload file 
-                (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
+                # Start upload file must be invoke webrequest instead of graph due to memory handling uploading large files
+                (Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
 
                 Write-output "File [$SourcePath] uploaded to destination [$($LibraryURL)]."
             }
