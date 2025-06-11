@@ -29,7 +29,7 @@ Function New-UploadSPO {
         CREATED  : 23/01/2025
 
         .EXAMPLE
-        $TenantName = "ucorponline"
+        $TenantName = "TenantName"
         $SiteName = "Intune"
         $SourcePath = "C:\Temp\DevicesImported1.csv,C:\Temp\DevicesImported2.csv"
         $DriveName = "Documents"
@@ -68,7 +68,7 @@ Function New-UploadSPO {
                 # Start process upload file to DestinationPath
                 Write-output "DestinationPath specified [$DestinationPath]."
 
-                # Start upload file must be invoke webrequest instead of graph due to memory handling uploading large files
+                # Start upload file
                 $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($DestinationPath)/$($FileName):/content"
                 (Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
 
@@ -78,7 +78,7 @@ Function New-UploadSPO {
                 # No specific DestinationPath specified file need to be uploaded in root
                 Write-Output "No DestinationPath specified continue process root [$LibraryURL]."
 
-                # Start upload file must be invoke webrequest instead of graph due to memory handling uploading large files
+                # Start upload file
                 $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/root:/$($FileName):/content"
                 (Invoke-WebRequest -Uri $Uri -Headers $($global:authHeader) -Method PUT -InFile $SourcePath -ContentType 'multipart/form-data' | Out-Null)
 
