@@ -39,6 +39,7 @@ function New-UploadLargeSPO {
     #>
 
 	param(
+        [Parameter(Mandatory=$true)]$TenantName,
 		[Parameter(Mandatory=$true)]$SiteName,
         [Parameter(Mandatory=$true)]$SourcePath,
         [Parameter(Mandatory=$true)]$DriveName,

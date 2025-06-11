@@ -6,6 +6,9 @@ Function New-DownloadSPO {
         .DESCRIPTION
         Can be used to download files from SharePoint Online locations.
 
+        .PARAMETER TenantName
+        Mandatory to specify the tenant name.
+
         .PARAMETER SiteName
         Mandatory to specify the SharePoint site name.
 
@@ -37,6 +40,7 @@ Function New-DownloadSPO {
         CREATED  : 23/01/2025
 
         .EXAMPLE
+        $TenantName = "TenantName"
         $SiteName = "Intune"
         $SourcePath = "ImportAutopilotDevice/Import"
         $FileName = "DevicesImported.csv"
@@ -50,6 +54,7 @@ Function New-DownloadSPO {
     #>
 
 	param(
+        [Parameter(Mandatory=$true)]$TenantName,
         [Parameter(Mandatory=$true)]$SiteName,
         [Parameter(Mandatory=$true)]$DestinationPath,
         [Parameter(Mandatory=$true)]$FileExtension,
