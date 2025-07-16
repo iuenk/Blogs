@@ -48,6 +48,7 @@ function New-DownloadDirectorySPO {
 	)
 
     try {
+        # Function to recursively get all items in a SharePoint Online Document Library
         function Get-SPODriveItemsRecursively {
             param(
                 [Parameter(Mandatory=$true)]
