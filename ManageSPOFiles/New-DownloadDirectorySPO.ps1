@@ -106,9 +106,9 @@ function New-DownloadDirectorySPO {
 
         foreach ($file in $PathFiles){
             # Parse SharePoint Document Library path
-            $SPOFilePath = $file.parentReference.path.split('/root:/')[1]
-            $localFilePath = $SPOFilePath.Remove(0, $SPOFilePath.IndexOf("/"))
-            $localFilePath = $localFilePath.Replace("/", "\").Remove(0, 1)
+            $SPOFilePath = $file.parentReference.path.split(":")[1]
+            $localFilePath = $SPOFilePath.substring(1)
+            $localFilePath = $localFilePath.Replace("/", "\")
             $localPath = $DestinationPath + "\" + $localFilePath
 
             # Create local path if not exist
@@ -117,7 +117,7 @@ function New-DownloadDirectorySPO {
             Write-output "[$([math]::Round($file.Size / 1kb, 2)) KB] file [$($file.name)] will be downloaded to [$localPath]."
             try {
                 # Download file from SharePoint
-                Invoke-RestMethod -Uri $file.'@microsoft.graph.downloadUrl' -OutFile $($localPath + "\" + $($file.name)) -ProgressAction SilentlyContinue
+                Invoke-RestMethod -Uri $file.'@microsoft.graph.downloadUrl' -OutFile $($localPath + "\" + $($file.name))
                 $CompletedFiles++
             } 
             catch {
