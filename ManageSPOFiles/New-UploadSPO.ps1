@@ -2,6 +2,8 @@ Function New-UploadSPO {
     <#
         .SYNOPSIS
         Can be used to upload files to SharePoint Online locations.
+        Beware of the message "This operation is currently limited to supporting files less than 2 gigabytes in size sharepoint".
+        Files larger than 2GB will not be uploaded.
 
         .DESCRIPTION
         Can be used to upload files to SharePoint Online locations.
@@ -16,17 +18,14 @@ Function New-UploadSPO {
         Mandatory to specify one or more files located on the local machine. To specify multiple files use a comma separated string.
 
         .PARAMETER DriveName
-        Mandatory to specify the DriveName like Documents or Automation please check the SPO URL text after the site name.
-        It is the first location metnioned after the SiteName. Examples below:
-        https://<tenant>.sharepoint.com/sites/<SiteName>/Shared%20Documents = Documents
-        https://<tenant>.sharepoint.com/sites/<SiteName>/Automation = Automation
+        Mandatory to specify the DriveName like Documents.
 
         .PARAMETER DestinationPath
         Optional to declare the SharePoint destination of the file, by default the file will be uploaded in the root.
 
         .NOTES
         AUTHOR   : Ivo Uenk
-        CREATED  : 23/01/2025
+        CREATED  : 16/07/2025
 
         .EXAMPLE
         $TenantName = "TenantName"

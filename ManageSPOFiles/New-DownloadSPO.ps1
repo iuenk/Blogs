@@ -20,10 +20,7 @@ Function New-DownloadSPO {
         Mandatory to specify the files based on extension and download those (can be all kind of extensions no limitations).
 
         .PARAMETER DriveName
-        Mandatory to specify the DriveName like Documents or Automation please check the SPO URL text after the site name.
-        It is the first location metnioned after the SiteName. Examples below:
-        https://<tenant>.sharepoint.com/sites/<SiteName>/Shared%20Documents = Documents
-        https://<tenant>.sharepoint.com/sites/<SiteName>/Automation = Automation
+        Mandatory to specify the DriveName like Documents.
 
         .PARAMETER SourcePath
         Optional to declare the SharePoint source of the file, by default the file will be downloaded from the root.
@@ -37,7 +34,7 @@ Function New-DownloadSPO {
 
         .NOTES
         AUTHOR   : Ivo Uenk
-        CREATED  : 23/01/2025
+        CREATED  : 16/07/2025
 
         .EXAMPLE
         $TenantName = "TenantName"
