@@ -33,8 +33,8 @@ function New-UploadLargeSPO {
         $SourcePath = "C:\Temp\DevicesImported1.csv,C:\Temp\DevicesImported2.csv"
         $DriveName = "Documents"
         $DestinationPath = "ImportAutopilotDevice/Import"
-        New-UploadSPO -TenantName $TenantName -SiteName $SiteName -SourcePath $SourcePath -DriveName $DriveName
-        New-UploadSPO -TenantName $TenantName -SiteName $SiteName -SourcePath $SourcePath -DriveName $DriveName -DestinationPath $DestinationPath
+        New-UploadLargeSPO -TenantName $TenantName -SiteName $SiteName -SourcePath $SourcePath -DriveName $DriveName
+        New-UploadLargeSPO -TenantName $TenantName -SiteName $SiteName -SourcePath $SourcePath -DriveName $DriveName -DestinationPath $DestinationPath
     #>
 
 	param(
