@@ -56,7 +56,7 @@ function Remove-ItemsSPO {
         $FolderId = (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).Id
 
         $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$FolderId/children"
-        $FolderItems = Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET
+        $FolderItems = (Invoke-RestMethod -Uri $Uri -Headers $($global:authHeader) -Method GET).value
 
         foreach ($item in $FolderItems){
             $Uri = "https://graph.microsoft.com/v1.0/drives/$($DriveId)/items/$($item.Id)"
