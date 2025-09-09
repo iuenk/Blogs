@@ -16,8 +16,8 @@
 #                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00
 #
 # Created by :     Ivo Uenk
-# Date       :     25-11-2024
-# Version    :     1.0
+# Date       :     09-09-2025
+# Version    :     1.2
 #=============================================================================================================================
 
 function set-remediation-script {
@@ -38,6 +38,8 @@ function set-remediation-script {
         [string]$displayName,
         [Parameter(Mandatory=$true)]
         [string]$publisher,
+        [Parameter(Mandatory=$true)]
+        [string]$environment,
         [Parameter(Mandatory=$false)]
         [string]$nDisplayName,
         [Parameter(Mandatory=$false)]
@@ -404,7 +406,7 @@ function set-remediation-script {
             break
         }
 
-        Write-Host "##[debug] action [$action] for remediation script [$displayName] initiated by [$publisher]."
+        Write-Host "##[debug] action [$action] for remediation script [$displayName] initiated by [$publisher] on environment [$environment]."
         Write-Host "##[debug] description [$description]."
         Write-Host "##[debug] update displayName [$nDisplayName]."               
         Write-Host "##[debug] detect script [$detectPath]."
@@ -424,7 +426,7 @@ function set-remediation-script {
                     $detect_B64 = [convert]::ToBase64String((Get-Content $detectPath -Encoding byte))
                 } 
                 else {
-                    Write-Host "##[debug] no detect script found."
+                    Write-Host "##[debug] [$displayName] no detect script found."
                 }
         
                 if($remediatePath){
@@ -436,35 +438,34 @@ function set-remediation-script {
                     $remediate_B64 = [convert]::ToBase64String((Get-Content $remediatePath -Encoding byte))
                 } 
                 else {
-                    Write-Host "##[debug] no remediate script found."
+                    Write-Host "##[debug] [$displayName] no remediate script found."
                 }
             }
             else {
-                throw "detect and remediation script not found."
+                throw "[$displayName] detect and remediation script not found."
             }
 
-            # Transform variable string input to an array with assigned- and excluded groups and scopetags
-            if($selectedScopeTags){$scopeTags = $selectedScopeTags.Split(",")}
-            if($selectedAssignedGroups){$assignedGroups = $selectedAssignedGroups.Split(",")}
-            if($selectedExcludedGroups){$excludedGroups = $selectedExcludedGroups.Split(",")}
-
             # Check if given scope tags are found in Intune
-            if(-not(!$scopeTags)){
-                foreach ($scopeTag in $scopeTags){
-                    $scopeTagId = (Get-ScopeTags | Where-Object {$_.displayName -eq $scopeTag}).id
+            if ($selectedScopeTags){$scopeTags = $selectedScopeTags.Split(",")}
 
-                    if(-not(!$scopeTagId)){
-                        [array]$scopeTagIds += $scopeTagId
+            if (-not(!$scopeTags)){
+                foreach ($scopeTag in $scopeTags){
+                    $tagToAssign = Get-ScopeTags | Where-Object {$_.displayName -eq $scopeTag}
+
+                    if(-not(!$tagToAssign)){
+                        Write-Host "##[debug] [$displayName] scope tag to assign [$($tagToAssign.displayName)]."
+                        [array]$tagsToAssign += $tagToAssign
                     }
                     else {
-                        throw "scope tag [$scopeTag] not found."
+                        throw "[$displayName] scope tag [$($tagToAssign.displayName)] not found."
                     }
-                    Write-Host "##[debug] scope tag to assign [$scopeTag]."
                 }
             }
 
             # Check if given assigned groups are found in Microsoft Entra Id
-            if(-not(!$assignedGroups)){
+            if ($selectedAssignedGroups){$assignedGroups = $selectedAssignedGroups.Split(",")}
+
+            if (-not(!$assignedGroups)){
                             
                 $nAssignedGroups = @()
                 foreach ($group in $assignedGroups){
@@ -472,9 +473,6 @@ function set-remediation-script {
                     ### IMPORTANT FOLLOW THE CORRECT ORDER OF PARAMETERS IN VARS.TXT ###
                     $sg = @()
                     $sg = $group.Split(";")
-                    
-                    # Need to create trick to check if date is empty
-                    $y = (Get-Date).year
                 
                     # Important to empty it
                     $groupId = @()
@@ -496,9 +494,9 @@ function set-remediation-script {
                         $filterType = $null
                     }
                 
-                    if($sg[4] -like "$y-*"){
+                    if ($sg[4] -match "\d+"){
                         $date = $sg[4]
-                    } elseif(($sg[4] -eq "include") -or ($sg[4] -eq "exclude")){
+                    } elseif (($sg[4] -eq "include") -or ($sg[4] -eq "exclude")){
                         $date = $null
                         $filterType = $sg[4]   
                     } else {
@@ -529,36 +527,38 @@ function set-remediation-script {
 
                             $schedules = @('daily', 'hourly', 'once')  
                             if($schedules -notcontains $($nGroup.runSchedule)){
-                                throw "runSchedule [$($nGroup.runSchedule)] not correct must be one of [$schedules]."
+                                throw "[$displayName] runSchedule [$($nGroup.runSchedule)] not correct must be one of [$schedules]."
                             }
                         }
                         else {
-                            throw "##vso[task.logissue type=error] runSchedule info not found."
+                            throw "[$displayName] runSchedule info not found."
                         }
                                 
                         if((-not(!$($nGroup.filterType))) -and (-not(!$($nGroup.filterName)))){ 
 
                             $filterTypes = @('include', 'exclude')
                             if($filterTypes -notcontains $($nGroup.filterType)){ 
-                                Write-Host "##vso[task.logissue type=error] runSchedule [$($nGroup.filterType)] not correct must be one of [$filterTypes]."
+                                throw "[$displayName] runSchedule [$($nGroup.filterType)] not correct must be one of [$filterTypes]."
                             }
 
                             $filterId = (Get-IntuneFilter | Where-Object {$_.displayName -eq $($nGroup.filterName)}).id
 
                             if(!$filterId){
-                                throw "##vso[task.logissue type=error] filterName [$($nGroup.filterName)] not found."
+                                throw "[$displayName] filterName [$($nGroup.filterName)] not found."
                             }
                         }
-                        Write-Host "##[debug] group to assign [$($nGroup.displayName)] schedule [$($nGroup.runSchedule)] interval [$($nGroup.interval)] time [$($nGroup.time)] filterType [$($nGroup.filterType)] filterName [$($nGroup.filterName)]."
+                        Write-Host "##[debug] [$displayName] group to assign [$($nGroup.displayName)] schedule [$($nGroup.runSchedule)] interval [$($nGroup.interval)] time [$($nGroup.time)] date [$($nGroup.date)] filterType [$($nGroup.filterType)] filterName [$($nGroup.filterName)]."
                     }
                     else {
-                        throw "##vso[task.logissue type=error] assigned group [$($nGroup.displayName)] not found."
+                        throw "[$displayName] assigned group [$($nGroup.displayName)] not found."
                     }
                 }
             }
 
             # Check if given excluded groups are found in Microsoft Entra Id
-            if(-not(!$excludedGroups)){
+            if ($selectedExcludedGroups){$excludedGroups = $selectedExcludedGroups.Split(",")}
+
+            if (-not(!$excludedGroups)){
                 foreach ($group in $excludedGroups){
                     $nExcludedGroup = Get-Group -displayName "$group"
 
@@ -566,9 +566,9 @@ function set-remediation-script {
                         [array]$nExcludedGroups += $nExcludedGroup
                     }
                     else {
-                        throw "excluded group [$group] not found."
+                        throw "[$displayName] excluded group [$group] not found."
                     }
-                    Write-Host "##[debug] group to exclude [$group]."
+                    Write-Host "##[debug] [$displayName] group to exclude [$group]."
                 }
             }
         }
@@ -624,7 +624,7 @@ function set-remediation-script {
 
                 # Create remediation script    
                 $createdRemediationScript = Set-deviceHealthScript -json $createRemediationJSON
-                Write-Host "##[debug] remediation script [$($createdRemediationScript.displayName)] with [$($createdRemediationScript.id)] created."
+                Write-Host "##[debug] [$displayName] remediation script [$($createdRemediationScript.displayName)] with [$($createdRemediationScript.id)] created."
                 
                 # Start with logic for assign or exclude groups
                 $groupsJSON = @"
@@ -694,7 +694,7 @@ function set-remediation-script {
                         }
 
                         $g.deviceHealthScriptAssignments += $ga
-                        Write-Host "##[debug] group [$($nGroup.displayName)] schedule [$($ng.runSchedule)] interval [$($ng.interval)] time [$($ng.time)] date [$($ng.date)] filterType [$($ng.filterType)] filterName [$($ng.filterName)] added as assigned group to [$($createdRemediationScript.displayName)]."
+                        Write-Host "##[debug] [$displayName] group [$($nGroup.displayName)] schedule [$($ng.runSchedule)] interval [$($ng.interval)] time [$($ng.time)] date [$($ng.date)] filterType [$($ng.filterType)] filterName [$($ng.filterName)] added as assigned group."
                     }
                 }
 
@@ -714,7 +714,7 @@ function set-remediation-script {
 "@
                         $ge = $groupExcludeJSON | ConvertFrom-Json
                         $g.deviceHealthScriptAssignments += $ge
-                        Write-Host "##[debug] group [$($nGroup.displayName)] added as excluded group to [$($createdRemediationScript.displayName)]."
+                        Write-Host "##[debug] [$displayName] group [$($nGroup.displayName)] added as excluded group."
                     }
                 }
                 
@@ -728,7 +728,7 @@ function set-remediation-script {
                 }
             }
             else {
-                throw "remediation script with displayName [$displayName] already exist."
+                throw "[$displayName] remediation script already exist."
             }            
         }
 
@@ -738,7 +738,7 @@ function set-remediation-script {
 
             # When deviceHealthScript is found continue to update it
             if(-not(!$deviceHealthScript)){
-                Write-Host "##[debug] start updating remediation script [$displayName]."
+                Write-Host "##[debug] [$displayName] start updating remediation script."
 
                 $changedSettings = 0
                 $cRemediation = Get-deviceHealthScript -deviceHealthScriptId $($deviceHealthScript.id)
@@ -763,11 +763,11 @@ function set-remediation-script {
                     if ($nDisplayName -ne ($cRemediation.displayName)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<displayName>',$nDisplayName
                         $changedSettings += 1
-                        Write-Host "##[debug] displayName updated from [$($cRemediation.displayName)] to [$nDisplayName]."
+                        Write-Host "##[debug] [$displayName] displayName updated from [$($cRemediation.displayName)] to [$nDisplayName]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<displayName>',$($cRemediation.displayName)
-                        Write-Host "##[debug] displayName already [$($cRemediation.displayName)]."
+                        Write-Host "##[debug] [$displayName] displayName already [$($cRemediation.displayName)]."
                     }
                 } 
                 else {
@@ -779,11 +779,11 @@ function set-remediation-script {
                     if ($description -ne ($cRemediation.description)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<description>',$description
                         $changedSettings += 1
-                        Write-Host "##[debug] description updated from [$($cRemediation.description)] to [$description]."
+                        Write-Host "##[debug] [$displayName] description updated from [$($cRemediation.description)] to [$description]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<description>',$($cRemediation.description)
-                        Write-Host "##[debug] description already [$($cRemediation.description)]."
+                        Write-Host "##[debug] [$displayName] description already [$($cRemediation.description)]."
                     }
                 } 
                 else {
@@ -795,11 +795,11 @@ function set-remediation-script {
                     if ($detect_B64 -ne ($cRemediation.detectionScriptContent)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<detectionScriptContent>',$detect_B64
                         $changedSettings += 1
-                        Write-Host "##[debug] detection script updated from [$($cRemediation.detectionScriptContent)] to [$detect_B64]."
+                        Write-Host "##[debug] [$displayName] detection script updated from [$($cRemediation.detectionScriptContent)] to [$detect_B64]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<detectionScriptContent>',$($cRemediation.detectionScriptContent)
-                        Write-Host "##[debug] detection script already [$($cRemediation.detectionScriptContent)]."
+                        Write-Host "##[debug] [$displayName] detection script already [$($cRemediation.detectionScriptContent)]."
                     }
                 } 
                 else {
@@ -811,11 +811,11 @@ function set-remediation-script {
                     if ($remediate_B64 -ne ($cRemediation.remediationScriptContent)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<remediationScriptContent>',$remediate_B64
                         $changedSettings += 1
-                        Write-Host "##[debug] remediation script updated from [$($cRemediation.remediationScriptContent)] to [$remediate_B64]."
+                        Write-Host "##[debug] [$displayName] remediation script updated from [$($cRemediation.remediationScriptContent)] to [$remediate_B64]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<remediationScriptContent>',$($cRemediation.remediationScriptContent)
-                        Write-Host "##[debug] remediation script already [$($cRemediation.remediationScriptContent)]."
+                        Write-Host "##[debug] [$displayName] remediation script already [$($cRemediation.remediationScriptContent)]."
                     }
                 } 
                 else {
@@ -827,11 +827,11 @@ function set-remediation-script {
                     if ($runAsAccount -ne ($cRemediation.runAsAccount)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<runAsAccount>',$runAsAccount
                         $changedSettings += 1
-                        Write-Host "##[debug] runAsAccount updated from [$($cRemediation.runAsAccount)] to [$runAsAccount]."
+                        Write-Host "##[debug] [$displayName] runAsAccount updated from [$($cRemediation.runAsAccount)] to [$runAsAccount]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<runAsAccount>',$($cRemediation.runAsAccount)
-                        Write-Host "##[debug] runAsAccount already [$($cRemediation.runAsAccount)]."
+                        Write-Host "##[debug] [$displayName] runAsAccount already [$($cRemediation.runAsAccount)]."
                     }
                 } 
                 else {
@@ -843,11 +843,11 @@ function set-remediation-script {
                     if ($runAs32Bit -ne ($cRemediation.runAs32Bit)){
                         $updateRemediationJSON = $updateRemediationJSON -replace '<runAs32Bit>',$runAs32Bit
                         $changedSettings += 1
-                        Write-Host "##[debug] runAs32Bit updated from [$($cRemediation.runAs32Bit)] to [$runAs32Bit]."
+                        Write-Host "##[debug] [$displayName] runAs32Bit updated from [$($cRemediation.runAs32Bit)] to [$runAs32Bit]."
                     }
                     else {
                         $updateRemediationJSON = $updateRemediationJSON -replace '<runAs32Bit>',$($cRemediation.runAs32Bit)
-                        Write-Host "##[debug] runAs32Bit already [$($cRemediation.runAs32Bit)]."
+                        Write-Host "##[debug] [$displayName] runAs32Bit already [$($cRemediation.runAs32Bit)]."
                     }
                 } 
                 else {
@@ -858,29 +858,30 @@ function set-remediation-script {
 
                 # Get current scope tags on remediation script            
                 foreach ($scopeTagId in $($cRemediation.roleScopeTagIds)){
-                    [array]$cScopeTagIds += $scopeTagId
+                    $scopeTag = (Get-ScopeTags | Where-Object {$_.id -eq $scopeTagId})
+                    [array]$cScopeTags += $scopeTag
                 }
 
                 # Get device scope tags to verify if tag id needs to be added or removed
-                if((-not(!$scopeTagIds)) -or ($cScopeTagIds -ne 0)){
+                if ((-not(!$($tagsToAssign.id))) -or ($($cScopeTagIds.id) -ne 0)){
                                     
                     # Get remediation scope tags to verify if tag id needs to be added
-                    $scopeTagIds | ForEach-Object{
-                        if($cScopeTagIds -notcontains $_){
-                            [array]$updatedScopeTagIds += $_
+                    $tagsToAssign | ForEach-Object {
+                        if ($($cScopeTags.id) -notcontains $($_.id)){
+                            [array]$updatedScopeTagIds += $($_.id)
                             $changedSettings += 1
-                            Write-Host "##[debug] scope tag id [$_] added to [$($cRemediation.displayName)]."
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] added."
                         }
                         else {
-                            [array]$updatedScopeTagIds += $_
-                            Write-Host "##[debug] scope tag id [$_] already assigned to [$($cRemediation.displayName)]."
+                            [array]$updatedScopeTagIds += $($_.id)
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] already assigned."
                         }
                     }
 
-                    $cScopeTagIds | ForEach-Object{
-                        if($scopeTagIds -notcontains $_){
+                    $cScopeTags | ForEach-Object{
+                        if($($tagsToAssign.id) -notcontains $($_.id)){
                             $changedSettings += 1
-                            Write-Host "##[debug] scope tag id [$_] removed from [$($cRemediation.displayName)]."
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] removed."
                         }
                     }
 
@@ -897,13 +898,13 @@ function set-remediation-script {
                     # No scope tags found
                     $updateRemediationJSON = $updateRemediationJSON -replace '<roleScopeTagIds>',"[]"
                     $changedSettings += 1
-                    Write-Host "##[debug] no scope tag id found assign default to [$($cRemediation.displayName)]."
+                    Write-Host "##[debug] [$displayName] no scope tag id found assign default."
                 }
 
                 # Update all settings on remediation script
                 if ($changedSettings -ne 0){
                     Update-deviceHealthScript -deviceHealthScriptId $($deviceHealthScript.id) -json $updateRemediationJSON
-                    Write-Host "##[debug] updated [$changedSettings] settings on remediation script [$($deviceHealthScript.displayName)]."
+                    Write-Host "##[debug] [$displayName] updated [$changedSettings] settings on remediation script."
                 }  
             
                 ########## Update groupmemberships ##########
@@ -986,11 +987,11 @@ function set-remediation-script {
 
                         if($($cGroupAssignments.target.groupId) -notcontains $($_.groupId)){                               
                             $g.deviceHealthScriptAssignments += $ga
-                            Write-Host "##[debug] group [$($_.displayName)] added with schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($_.displayName)] added with schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)]."
                         }
                         else {        
                             $g.deviceHealthScriptAssignments += $ga
-                            Write-Host "##[debug] group [$($_.displayName)] already assigned with updated schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)] to [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($_.displayName)] already assigned with updated schedule [$($_.runSchedule)] interval [$($_.interval)] time [$($_.time)] date [$($_.date)] filterType [$($_.filterType)] filterName [$($_.filterName)]."
                         }
                     }
                 }
@@ -1003,7 +1004,7 @@ function set-remediation-script {
                         $group = Get-Group -id $($_.target.groupId)
 
                         if($($nAssignedGroups.groupId) -notcontains $($_.target.groupId)){
-                            Write-Host "##[debug] group [$($group.displayName)] removed as assigned group from [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($group.displayName)] removed as assigned group."
                         }
                     }
                 }
@@ -1028,7 +1029,7 @@ function set-remediation-script {
                             $ge = $groupExcludeJSON | ConvertFrom-Json
                             $g.deviceHealthScriptAssignments += $ge
 
-                            Write-Host "##[debug] group [$($_.displayName)] added as excluded group to [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($_.displayName)] added as excluded group."
                         }
                     }
                 }
@@ -1054,10 +1055,10 @@ function set-remediation-script {
                             $ge = $groupExcludeJSON | ConvertFrom-Json
                             $g.deviceHealthScriptAssignments += $ge
 
-                            Write-Host "##[debug] group [$($group.displayName)] already an excluded group on [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($group.displayName)] already an excluded group."
                         }
                         else {
-                            Write-Host "##[debug] group [$($group.displayName)] removed as excluded group from [$($deviceHealthScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($group.displayName)] removed as excluded group."
                         }
                     }
                 }
@@ -1072,7 +1073,7 @@ function set-remediation-script {
                 }
             }
             else {
-                throw "remediation script with displayName [$displayName] does not exist."        
+                throw "[$displayName] remediation script does not exist."        
             }
         }
 
@@ -1082,14 +1083,14 @@ function set-remediation-script {
 
             # When deviceHealthScript is found continue to remove it
             if(-not(!$deviceHealthScript)){
-                Write-Host "##[debug] start removing remediation script [$displayName]."
+                Write-Host "##[debug] [$displayName] start removing remediation script."
 
                 # Remove remediation script
                 Remove-deviceHealthScript -deviceHealthScriptId $($deviceHealthScript.id)
-                Write-Host "##[debug] remediation script [$displayName] removed."
+                Write-Host "##[debug] [$displayName] remediation script removed."
             }
             else {
-                throw "remediation script with displayName [$displayName] does not exist."
+                throw "[$displayName] remediation script does not exist."
             }
         }
     }

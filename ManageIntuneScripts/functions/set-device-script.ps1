@@ -13,8 +13,8 @@
 #                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00 
 #
 # Created by :     Ivo Uenk
-# Date       :     27-03-2025
-# Version    :     1.1
+# Date       :     09-09-2025
+# Version    :     1.2
 #=============================================================================================================================
 
 function set-device-script {
@@ -365,7 +365,8 @@ function set-device-script {
                 'Authorization' = $token.CreateAuthorizationHeader()
             }
             Write-Host "##[debug] msal token retrieved."
-        } Catch {
+        } 
+        catch {
             Write-Error $_.Exception.Message 
             write-host
             break
@@ -378,7 +379,7 @@ function set-device-script {
         Write-Host "##[debug] run as account [$runAsAccount]."
 
         # The steps below can be skipped when action is remove scriptPath can be empty
-        if(($action -eq "create") -or ($action -eq "update")){
+        if (($action -eq "create") -or ($action -eq "update")){
             if(-not(!$scriptPath)){
                 $PSDefaultParameterValues = @{
                     "set-device-script:scriptPath"=".\.ps1"
@@ -387,40 +388,40 @@ function set-device-script {
                 $scriptPath_B64 = [convert]::ToBase64String((Get-Content $scriptPath -Encoding byte))
             }
             else {
-                throw "##vso[task.logissue type=error] device script not found."
+                throw "[$displayName] device script not found."
             }
 
-            # Transform variable string input to an array with include groups and scopetags
-            if($selectedScopeTags){$scopeTags = $selectedScopeTags.Split(",")}
-            if($selectedIncludedGroups){$includedGroups = $selectedIncludedGroups.Split(",")}
-
             # Check if given scope tags are found in Intune
-            if(-not(!$scopeTags)){
-                foreach ($scopeTag in $scopeTags){
-                    $scopeTagId = (Get-ScopeTags | Where-Object {$_.displayName -eq $scopeTag}).id
+            if ($selectedScopeTags){$scopeTags = $selectedScopeTags.Split(",")}
 
-                    if(-not(!$scopeTagId)){
-                        [array]$scopeTagIds += $scopeTagId
+            if (-not(!$scopeTags)){
+                foreach ($scopeTag in $scopeTags){
+                    $tagToAssign = Get-ScopeTags | Where-Object {$_.displayName -eq $scopeTag}
+
+                    if(-not(!$tagToAssign)){
+                        Write-Host "##[debug] [$displayName] scope tag to assign [$($tagToAssign.displayName)]."
+                        [array]$tagsToAssign += $tagToAssign
                     }
                     else {
-                        throw "scope tag [$scopeTag] not found."
+                        throw "[$displayName] scope tag [$($tagToAssign.displayName)] not found."
                     }
-                    Write-Host "##[debug] scope tag to assign [$scopeTag]."
                 }
             }
 
             # Check if given include groups are found in Microsoft Entra ID
-            if(-not(!$includedGroups)){
+            if ($selectedIncludedGroups){$includedGroups = $selectedIncludedGroups.Split(",")}
+
+            if (-not(!$includedGroups)){
                 foreach ($group in $includedGroups){
                     $nIncludedGroup = Get-Group -displayName "$group"
 
                     if(-not(!$nIncludedGroup)){
+                        Write-Host "##[debug] [$displayName] group to include [$group]."
                         [array]$nIncludedGroups += $nIncludedGroup
                     }
                     else {
-                        throw "include group [$group] not found."
+                        throw "[$displayName] include group [$group] not found."
                     }
-                    Write-Host "##[debug] group to include [$group]."
                 }
             }
         }
@@ -438,11 +439,11 @@ function set-device-script {
 
         #################### Create device script block ####################
 
-        if($action -eq "create"){
+        if ($action -eq "create"){
             
             # When deviceManagementScript is empty continue to create it
-            if(!$deviceScript){
-                Write-Host "##[debug] start creating device script [$displayName]."
+            if (!$deviceScript){
+                Write-Host "##[debug] [$displayName] start creating device script."
 
                 # create device script (enforceSignatureCheck configured directly)
                 $createScriptJSON = @"
@@ -458,11 +459,11 @@ function set-device-script {
                     "roleScopeTagIds": <roleScopeTagIds>
                 }
 "@
-                $scopeTagIdsJSON = $scopeTagIds | ConvertTo-Json
 
-                if(-not(!$scopeTagIds)){
+                $scopeTagIdsJSON = $($tagsToAssign.id) | ConvertTo-Json
 
-                    if ($scopeTagIds.Count -eq 1){
+                if (-not(!$tagsToAssign)){
+                    if ($tagsToAssign.Count -eq 1){
                         $createScriptJSON = $createScriptJSON -replace '<roleScopeTagIds>',"[$scopeTagIdsJSON]"
                     }
                     else {
@@ -475,7 +476,7 @@ function set-device-script {
 
                 # Create device script    
                 $createdDeviceScript = Set-deviceManagementScript -json $createScriptJSON
-                Write-Host "##[debug] device script [$($createdDeviceScript.displayName)] with [$($createdDeviceScript.id)] created."
+                Write-Host "##[debug] [$displayName] device script with [$($createdDeviceScript.id)] created."
                     
                 # Start with logic for include groups
                 $groupsJSON = @"
@@ -488,7 +489,7 @@ function set-device-script {
                 $g = $groupsJSON | ConvertFrom-Json
                 
                 # When included group(s) are found
-                if(-not(!$nIncludedGroups)){
+                if (-not(!$nIncludedGroups)){
 
                     foreach($nGroup in $nIncludedGroups){
 
@@ -504,7 +505,7 @@ function set-device-script {
                         $ga = $groupAddJSON | ConvertFrom-Json
                         $g.deviceManagementScriptAssignments += $ga
 
-                        Write-Host "##[debug] group [$($nGroup.displayName)] added as included group to [$($createdDeviceScript.displayName)]."
+                        Write-Host "##[debug] [$displayName] group [$($nGroup.displayName)] added as included group."
                     }
                     $groupsJSON = $g | ConvertTo-Json -depth 32
                 }
@@ -513,18 +514,18 @@ function set-device-script {
                 Set-deviceManagementScriptAssignment -deviceManagementScriptId $($createdDeviceScript.id) -json $groupsJSON
             }
             else {
-                throw "device script with displayName [$displayName] already exist."
+                throw "[$displayName] device script already exist."
             }
         }
 
         #################### Update device script block ####################
 
         # When deviceManagementScript is not empty continue
-        if($action -eq "update"){
+        if ($action -eq "update"){
 
             # When deviceManagementScript is found continue to update it
-            if(-not(!$deviceScript)){
-                Write-Host "##[debug] start updating device script [$displayName]."
+            if (-not(!$deviceScript)){
+                Write-Host "##[debug] [$displayName] start updating device script."
 
                 $changedSettings = 0
                 $cDeviceScript = Get-deviceManagementScript -deviceManagementScriptId $($deviceScript.id)
@@ -544,15 +545,15 @@ function set-device-script {
                 }
 "@
                 # Update displayName
-                if(-not(!$nDisplayName)){
+                if (-not(!$nDisplayName)){
                     if ($nDisplayName -ne ($nDeviceScript.displayName)){
                         $updateScriptJSON = $updateScriptJSON -replace '<displayName>',$nDisplayName
                         $changedSettings += 1
-                        Write-Host "##[debug] displayName updated from [$($cDeviceScript.displayName)] to [$nDisplayName]."
+                        Write-Host "##[debug] [$displayName] displayName updated from [$($cDeviceScript.displayName)] to [$nDisplayName]."
                     }
                     else {
                         $updateScriptJSON = $updateScriptJSON -replace '<displayName>',$($cDeviceScript.displayName)
-                        Write-Host "##[debug] displayName already [$($cDeviceScript.displayName)]."
+                        Write-Host "##[debug] [$displayName] displayName already [$($cDeviceScript.displayName)]."
                     }
                 } 
                 else {
@@ -560,15 +561,15 @@ function set-device-script {
                 }
 
                 # Update description
-                if(-not(!$description)){
+                if (-not(!$description)){
                     if ($description -ne ($cDeviceScript.description)){
                         $updateScriptJSON = $updateScriptJSON -replace '<description>',$description
                         $changedSettings += 1
-                        Write-Host "##[debug] description updated from [$($cDeviceScript.description)] to [$description]."
+                        Write-Host "##[debug] [$displayName] description updated from [$($cDeviceScript.description)] to [$description]."
                     }
                     else {
                         $updateScriptJSON = $updateScriptJSON -replace '<description>',$($cDeviceScript.description)
-                        Write-Host "##[debug] description already [$($cDeviceScript.description)]."
+                        Write-Host "##[debug] [$displayName] description already [$($cDeviceScript.description)]."
                     }
                 } 
                 else {
@@ -576,17 +577,17 @@ function set-device-script {
                 }
 
                 # Update scriptContent
-                if(-not(!$detect_B64)){
+                if (-not(!$detect_B64)){
                     if ($detect_B64 -ne ($cDeviceScript.scriptContent)){
                         $updateScriptJSON = $updateScriptJSON -replace '<scriptContent>',$scriptPath_B64
                         $updateScriptJSON = $updateScriptJSON -replace '<fileName>',$fileName
                         $changedSettings += 1
-                        Write-Host "##[debug] device script updated from [$($cDeviceScript.scriptContent)] to [$scriptPath_B64]."
+                        Write-Host "##[debug] [$displayName] device script updated from [$($cDeviceScript.scriptContent)] to [$scriptPath_B64]."
                     }
                     else {
                         $updateScriptJSON = $updateScriptJSON -replace '<scriptContent>',$($cDeviceScript.scriptContent)
                         $updateScriptJSON = $updateScriptJSON -replace '<fileName>',$($cDeviceScript.fileName)
-                        Write-Host "##[debug] device script already [$($cDeviceScript.scriptContent)]."
+                        Write-Host "##[debug] [$displayName] device script already [$($cDeviceScript.scriptContent)]."
                     }
                 } 
                 else {
@@ -595,15 +596,15 @@ function set-device-script {
                 }
 
                 # Update runAsAccount
-                if(-not(!$runAsAccount)){
+                if (-not(!$runAsAccount)){
                     if ($runAsAccount -ne ($cDeviceScript.runAsAccount)){
                         $updateScriptJSON = $updateScriptJSON -replace '<runAsAccount>',$runAsAccount
                         $changedSettings += 1
-                        Write-Host "##[debug] runAsAccount updated from [$($cDeviceScript.runAsAccount)] to [$runAsAccount]."
+                        Write-Host "##[debug] [$displayName] runAsAccount updated from [$($cDeviceScript.runAsAccount)] to [$runAsAccount]."
                     }
                     else {
                         $updateScriptJSON = $updateScriptJSON -replace '<runAsAccount>',$($cDeviceScript.runAsAccount)
-                        Write-Host "##[debug] runAsAccount already [$($cDeviceScript.runAsAccount)]."
+                        Write-Host "##[debug] [$displayName] runAsAccount already [$($cDeviceScript.runAsAccount)]."
                     }
                 } 
                 else {
@@ -611,15 +612,15 @@ function set-device-script {
                 }
 
                 # Update runAs32Bit
-                if(-not(!$runAs32Bit)){
+                if (-not(!$runAs32Bit)){
                     if ($runAs32Bit -ne ($cDeviceScript.runAs32Bit)){
                         $updateScriptJSON = $updateScriptJSON -replace '<runAs32Bit>',$runAs32Bit
                         $changedSettings += 1
-                        Write-Host "##[debug] runAs32Bit updated from [$($cDeviceScript.runAs32Bit)] to [$runAs32Bit]."
+                        Write-Host "##[debug] [$displayName] runAs32Bit updated from [$($cDeviceScript.runAs32Bit)] to [$runAs32Bit]."
                     }
                     else {
                         $updateScriptJSON = $updateScriptJSON -replace '<runAs32Bit>',$($cDeviceScript.runAs32Bit)
-                        Write-Host "##[debug] runAs32Bit already [$($cDeviceScript.runAs32Bit)]."
+                        Write-Host "##[debug] [$displayName] runAs32Bit already [$($cDeviceScript.runAs32Bit)]."
                     }
                 } 
                 else {
@@ -630,27 +631,29 @@ function set-device-script {
 
                 # Get current scope tags on device script            
                 foreach ($scopeTagId in $($cDeviceScript.roleScopeTagIds)){
-                    [array]$cScopeTagIds += $scopeTagId
+                    $scopeTag = (Get-ScopeTags | Where-Object {$_.id -eq $scopeTagId})
+                    [array]$cScopeTags += $scopeTag
                 }
                                     
                 # Get device scope tags to verify if tag id needs to be added, already added or removed
-                if((-not(!$scopeTagIds)) -or ($cScopeTagIds -ne 0)){
+                if ((-not(!$($tagsToAssign.id))) -or ($($cScopeTagIds.id) -ne 0)){
 
-                    $scopeTagIds | ForEach-Object{
-                        if($cScopeTagIds -notcontains $_){
-                            [array]$updatedScopeTagIds += $_
+                    $tagsToAssign | ForEach-Object {
+                        if ($($cScopeTags.id) -notcontains $($_.id)){
+                            [array]$updatedScopeTagIds += $($_.id)
                             $changedSettings += 1
-                            Write-Host "##[debug] scope tag id [$_] added to [$($cDeviceScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] added."
                         }
                         else {
-                            [array]$updatedScopeTagIds += $_
-                            Write-Host "##[debug] scope tag id [$_] already assigned to [$($cDeviceScript.displayName)]."
+                            [array]$updatedScopeTagIds += $($_.id)
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] already assigned."
                         }
                     }
-                    $cScopeTagIds | ForEach-Object{
-                        if($scopeTagIds -notcontains $_){
+
+                    $cScopeTags | ForEach-Object{
+                        if($($tagsToAssign.id) -notcontains $($_.id)){
                             $changedSettings += 1
-                            Write-Host "##[debug] scope tag id [$_] removed from [$($cDeviceScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] scope tag [$($_.displayName)] with id [$($_.id)] removed."
                         }
                     }
 
@@ -667,13 +670,13 @@ function set-device-script {
                     # No scope tags found
                     $updateScriptJSON = $updateScriptJSON -replace '<roleScopeTagIds>',"[]"
                     $changedSettings += 1
-                    Write-Host "##[debug] no scope tag id found assign default to [$($cDeviceScript.displayName)]."
+                    Write-Host "##[debug] [$displayName] no scope tag id found assign default."
                 }
 
                 # Update settings on device script
                 if ($changedSettings -ne 0){
                     Update-deviceManagementScript -deviceManagementScriptId $($deviceScript.id) -json $updateScriptJSON
-                    Write-Host "##[debug] updated [$changedSettings] settings on device script [$($cDeviceScript.displayName)]."
+                    Write-Host "##[debug] [$displayName] updated [$changedSettings] settings on device script."
                 }  
 
                 ########## Update groupmemberships ##########
@@ -693,10 +696,10 @@ function set-device-script {
                 $g = $groupsJSON | ConvertFrom-Json
 
                 # When new included group(s) are found
-                if(-not(!$nIncludedGroups)){
+                if (-not(!$nIncludedGroups)){
 
                     # Add microsoft.graph.groupAssignmentTarget groups
-                    $nIncludedGroups | ForEach-Object{
+                    $nIncludedGroups | ForEach-Object {
                         if($cGroupAssignments -notcontains $($_.id)){
 
                             $groupAddJSON = @"
@@ -711,14 +714,14 @@ function set-device-script {
                             $ga = $groupAddJSON | ConvertFrom-Json
                             $g.deviceManagementScriptAssignments += $ga
 
-                            Write-Host "##[debug] group [$($_.displayName)] added as included group to [$($deviceScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($_.displayName)] added as included group."
                         }
                     }
                 }
 
-                if(-not(!$cGroupAssignments)){
+                if (-not(!$cGroupAssignments)){
 
-                    $cGroupAssignments | ForEach-Object{
+                    $cGroupAssignments | ForEach-Object {
                         $group = Get-Group -id $($_.target.groupId)
 
                         if($($nIncludedGroups.id) -contains $($_.target.groupId)){
@@ -735,16 +738,16 @@ function set-device-script {
                             $ga = $groupAddJSON | ConvertFrom-Json
                             $g.deviceManagementScriptAssignments += $ga
 
-                            Write-Host "##[debug] group [$($group.displayName)] already an included group on [$($deviceScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($group.displayName)] already an included group."
                         }
                         else {
-                            Write-Host "##[debug] group [$($group.displayName)] removed as included group from [$($deviceScript.displayName)]."
+                            Write-Host "##[debug] [$displayName] group [$($group.displayName)] removed as included group."
                         }
                     }
                 }
 
                 # Update group assignments
-                if((-not(!$nIncludedGroups)) -or (-not(!$cGroupAssignments))){
+                if ((-not(!$nIncludedGroups)) -or (-not(!$cGroupAssignments))){
                     $groupsJSON = $g | ConvertTo-Json -depth 32
                     Set-deviceManagementScriptAssignment -deviceManagementScriptId $($deviceScript.id) -json $groupsJSON
                 }
@@ -753,24 +756,24 @@ function set-device-script {
                 }
             }
             else {
-                throw "device script with displayName [$displayName] does not exist."              
+                throw "[$displayName] device script does not exist."              
             }
         }
 
         #################### Remove device script block ####################
 
-        if($action -eq "remove"){
+        if ($action -eq "remove"){
 
             # When deviceManagementScript is found continue to remove it
-            if(-not(!$deviceScript)){
+            if (-not(!$deviceScript)){
                 Write-Host "##[debug] start removing device script [$displayName]."
 
                 # Remove device script
                 Remove-deviceManagementScript -deviceManagementScriptId $($deviceScript.id)
-                Write-Host "##[debug] device script [$displayName] removed."
+                Write-Host "##[debug] [$displayName] device script removed."
             }
             else {
-                throw "device script with displayName [$displayName] does not exist."
+                throw "[$displayName] device script does not exist."
             }
         }
     }
