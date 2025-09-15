@@ -13,8 +13,8 @@
 #                  scopeTags=WPS-CDS-NL-01,WPS-CDS-NL-00 
 #
 # Created by :     Ivo Uenk
-# Date       :     09-09-2025
-# Version    :     1.2
+# Date       :     15-09-2025
+# Version    :     1.3
 #=============================================================================================================================
 
 function set-device-script {
@@ -344,8 +344,8 @@ function set-device-script {
         Import-Module MSAL.PS
 
         # Retrieve sensitive information from KeyVault
-        $secureClientId = (Get-AzKeyVaultSecret -VaultName $VaultName -Name clientId).SecretValue
-        $secureSecret = (Get-AzKeyVaultSecret -VaultName $VaultName -Name clientSecret).SecretValue
+        $secureClientId = (Get-AzKeyVaultSecret -VaultName $VaultName -Name RWAppId).SecretValue
+        $secureSecret = (Get-AzKeyVaultSecret -VaultName $VaultName -Name RWSecret).SecretValue
         $secureTenantId = (Get-AzKeyVaultSecret -VaultName $VaultName -Name tenantId).SecretValue
 
         # Convert KeyVault SecureString to Plaintext
@@ -403,7 +403,7 @@ function set-device-script {
                         [array]$tagsToAssign += $tagToAssign
                     }
                     else {
-                        throw "[$displayName] scope tag [$($tagToAssign.displayName)] not found."
+                        throw "[$displayName] scope tag [$scopeTag] not found."
                     }
                 }
             }
@@ -463,7 +463,7 @@ function set-device-script {
                 $scopeTagIdsJSON = $($tagsToAssign.id) | ConvertTo-Json
 
                 if (-not(!$tagsToAssign)){
-                    if ($tagsToAssign.Count -eq 1){
+                    if ($($tagsToAssign.id).Count -eq 1){
                         $createScriptJSON = $createScriptJSON -replace '<roleScopeTagIds>',"[$scopeTagIdsJSON]"
                     }
                     else {
