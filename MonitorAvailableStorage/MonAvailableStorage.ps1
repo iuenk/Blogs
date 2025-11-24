@@ -4,8 +4,7 @@
 #   
 # Notes      :     Will check available storage on all storage accounts within Azure subscriptions.
 #                  When a file share exceeds the defined threshold an email will be send with the details.
-#                  Subscription.Read.All permission needed for the Service Principal used.
-#                  Reader permission on storage accounts needed for the Service Principal used.
+#                  Atleast Reader permission on storage accounts needed for the Service Principal used.
 #                  This script is created to run in Automation Accounts but can easily be modified by changing the variables.      
 #
 # Created by :     Ivo Uenk
