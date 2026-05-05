@@ -1,0 +1,102 @@
+trigger: none
+pr: none
+
+name: "$(Product).$(Major).$(Minor).$(Date:yyyMMdd)$(Rev:.r)"
+
+variables:
+  Product: AAS.Ucorp
+  Major: 1
+  Minor: 0
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+parameters:
+  - name: SetLogIngestApiAppPermissionsDcrLevel
+    displayName: 'Set Log Ingest API App Permissions DCR Level'
+    type: string
+    default: 'false'
+    values:
+      - 'false'
+      - 'true'
+
+  - name: LogIngestServicePrincipalObjectId
+    displayName: 'Log Ingest Service Principal Object ID'
+    type: string
+    default: 'Empty'
+
+  - name: SchemaMode
+    displayName: 'Schema Mode'
+    type: string
+    default: 'Merge'
+    values:
+      - 'Merge'
+      - 'Overwrite'
+      - 'Migrate'
+
+resources:
+  repositories:
+  - repository: resources
+    ref: ${{variables['Build.SourceBranch']}}    
+    type: git
+    name: resources
+
+stages:
+  - stage: buildStage
+    jobs:
+    - job: buildJob
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+      - task: Powershell@2
+        displayName: 'Copy and compress scripts, functions and variables'
+        inputs:
+          targetType: 'inline'
+          script: |
+            mkdir $(build.artifactstagingdirectory)/LoggingUtilities
+            copy-item $(Build.SourcesDirectory)\log-management\functions $(build.artifactstagingdirectory)\LoggingUtilities -recurse
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish LoggingUtilities'
+        inputs:
+          PathtoPublish: '$(build.artifactstagingdirectory)'
+          ArtifactName: 'drop'
+  - stage: deployStage
+    variables:
+      - template: log-management/vars/vars.yml@resources 
+    jobs:
+    - job: deployJob
+      pool: Default
+      steps:
+      - checkout: none
+      - download: current
+      - task: PowerShell@2
+        displayName: 'Validate parameters'
+        condition: eq('${{parameters.SetLogIngestApiAppPermissionsDcrLevel}}', 'true')
+        inputs:
+          targetType: inline
+          script: |
+            if ("${{parameters.LogIngestServicePrincipalObjectId}}" -eq "Empty"){
+              Write-Error "LogIngestServicePrincipalObjectId is required when SetLogIngestApiAppPermissionsDcrLevel is true."
+              exit 1
+            }
+      - task: AzureKeyVault@2
+        inputs:
+          azureSubscription: ${{variables.azureServiceConnection}}
+          KeyVaultName: ${{variables.azureVaultName}}
+          SecretsFilter: '*'
+          RunAsPreJob: false           
+      - task: windowsmachinefilecopy@2
+        displayName: 'Copy LoggingUtilities'
+        inputs:
+          sourcepath: "$(pipeline.workspace)/drop/LoggingUtilities/"
+          machinenames: "$(agent)"
+          adminusername: "$(account)"
+          adminpassword: "$(svcautomation)"
+          targetpath: "$(executionpath)"
+      - task: PowerShellOnTargetMachines@3
+        displayName: 'Deploy set-intunehwinfo'
+        inputs:
+          machines: "$(agent)"
+          username: "$(account)"
+          userpassword: "$(svcautomation)"
+          inlineScript: |
+            pwsh -File $(executionpath)\functions\set-intunehwinfo.ps1 -executionPath "$(executionpath)" -publisher "$(Build.RequestedForEmail)" -appId "$(DevopsAppId)" -appSecret "$(DevopsSecret)" -intuneAppId "$(RWAppId)" -intuneAppSecret "$(RWSecret)" -tenantId "$(tenantId)" -SchemaMode "${{parameters.SchemaMode}}" -SetLogIngestApiAppPermissionsDcrLevel "${{parameters.SetLogIngestApiAppPermissionsDcrLevel}}" -LogIngestServicePrincipalObjectId "${{parameters.LogIngestServicePrincipalObjectId}}"
+          communicationprotocol: 'http'
