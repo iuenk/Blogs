@@ -1,14 +1,17 @@
+#Requires -Module ucorp.lawfunctions
+
 # Authentication token is generated using the appId and appSecret of an AAD App registration with permissions to read Intune data and write to Log Analytics workspace.
 # The script retrieves the list of all Intune managed devices and their hardware information, then uploads this data to a custom table in Log Analytics using the Data Collector API (will be deprecated in the future).
 
-# Get data to generate access token for Graph API
-$AutomationCredential = Get-AutomationPSCredential -Name "DevOpsSP"
-$TenantId = Get-AutomationVariable -Name "TenantId"
-$AppId = $AutomationCredential.UserName
-$securePassword = $AutomationCredential.Password
 
-$AppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
-$Headers = Get-LawAccessToken -AppId $AppId -AppSecret $AppSecret -TenantId $TenantId
+$TenantId = Get-AutomationVariable -Name "TenantId"
+
+# Get data to generate access token for Graph API Intune
+$AutomationCredential = Get-AutomationPSCredential -Name "ReadWriteSP"
+$IntuneAppId = $AutomationCredential.UserName
+$securePassword = $AutomationCredential.Password
+$IntuneAppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
+$Headers = Get-LawAccessToken -AppId $IntuneAppId -AppSecret $IntuneAppSecret -TenantId $TenantId
 
 $ApLogName = "IntuneHWInfo"
 $Date = (Get-Date)
