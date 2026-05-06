@@ -8,7 +8,7 @@
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <description>Automation law functions</description>
         <releaseNotes />
-        <copyright>(c) 2026 UCORP All rights reserved.</copyright>
+        <copyright>(c) 2026 UCORP. All rights reserved.</copyright>
         <tags>PSModule</tags>
     </metadata>
     <files>

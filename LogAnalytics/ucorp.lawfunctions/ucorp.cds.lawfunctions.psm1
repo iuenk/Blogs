@@ -611,7 +611,6 @@ function Set-LawCreateUpdateDataCollectionRuleLogIngestCustomLog {
     Create or Update Azure Data Collection Rule (DCR) used for log ingestion to Azure LogAnalytics using Log Ingestion API.
     Beware delegating Monitor Metrics Publisher Role permission (ID: 3913510d-42f4-4e42-8a64-420c390055eb) to Log Ingest App registration. Set role on resource group level of the DCR.
     Merge/Migrate = Merge new properties into existing schema, Overwrite = use source object schema, Migrate = It will create the DCR, based on the schema from the LogAnalytics v1 table schema.
-    $SetLogIngestApiAppPermissionsDcrLevel = $true will set the permissions on DCR level, which is more secure but also more complex to set up (as you need to have the DCR created before you can set permissions).
 
     .DESCRIPTION
     Uses schema based on source object.
@@ -1632,7 +1631,7 @@ function Set-LawDataCollectionRulePermissions {
         # Delegating Monitor Metrics Publisher Rolepermission to Log Ingest App
         $DcrRuleId = $DcrRule.id
 
-        Write-Output "Setting Monitor Metrics Publisher Role permissions on DCR [$($DcrName)]"
+        Write-Output "Setting Monitor Metrics Publisher Role permissions on DCR [$($DcrName)] for LogIngestServicePrincipalObjectId [$LogIngestServicePrincipalObjectId]"
 
         $monitorMetricsPublisherRoleId = "3913510d-42f4-4e42-8a64-420c390055eb"
         $roleDefinitionId = "/subscriptions/$($DcrSubscription)/providers/Microsoft.Authorization/roleDefinitions/$($monitorMetricsPublisherRoleId)"
@@ -1646,7 +1645,7 @@ function Set-LawDataCollectionRulePermissions {
         $existingAssignments | ForEach-Object {
             if (($_.principalId -eq $LogIngestServicePrincipalObjectId) -and ($_.roleDefinitionId -eq $roleDefinitionId)){
                 $assignmentFound = $true
-                Write-Output "Existing role assignment found for Log Ingest App on DCR [$($DcrName)] assignment will be skipped"
+                Write-Output "Monitor Metrics Publisher role assignment found for Log Ingest App on DCR [$($DcrName)] assignment will be skipped"
             }
         }
 
@@ -1672,6 +1671,49 @@ function Set-LawDataCollectionRulePermissions {
             }
             else {
                 Write-Error "Failed to set Monitor Metrics Publisher Role permissions on DCR [ $($DcrName) ] for Log Ingest App. Please check if the Log Ingest App Object ID is correct and has permissions to assign roles on the DCR resource."
+            }
+        }
+
+        Write-Output "Setting Reader Role permissions on DCR [$($DcrName)] for LogIngestServicePrincipalObjectId [$LogIngestServicePrincipalObjectId]"
+
+        $readerRoleId = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+        $roleDefinitionId = "/subscriptions/$($DcrSubscription)/providers/Microsoft.Authorization/roleDefinitions/$($readerRoleId)"
+
+        # Get assignments from data collection rule
+        $roleAssignmentUri = "https://management.azure.com" + $DcrRuleId + "/providers/Microsoft.Authorization/roleAssignments?api-version=2018-07-01"
+        $existingAssignments = (invoke-restmethod -UseBasicParsing -Uri $roleAssignmentUri -Method GET -Headers $Headers -ErrorAction Stop).value.properties        
+
+        # Check for existing role assignment for the Log Ingest App (to prevent conflicts)
+        $assignmentFound = $false
+        $existingAssignments | ForEach-Object {
+            if (($_.principalId -eq $LogIngestServicePrincipalObjectId) -and ($_.roleDefinitionId -eq $roleDefinitionId)){
+                $assignmentFound = $true
+                Write-Output "Reader role assignment found for Log Ingest App on DCR [$($DcrName)] assignment will be skipped"
+            }
+        }
+
+        if ($assignmentFound -eq $false){
+            $guid = (new-guid).guid
+            $roleUrl = "https://management.azure.com" + $DcrRuleId + "/providers/Microsoft.Authorization/roleAssignments/$($Guid)?api-version=2018-07-01"
+            $roleBody = @{
+                properties = @{
+                    roleDefinitionId = $roleDefinitionId
+                    principalId      = $LogIngestServicePrincipalObjectId
+                    scope            = $DcrRuleId
+                }
+            }
+            $jsonRoleBody = $roleBody | ConvertTo-Json -Depth 6
+
+            $result = try {
+                invoke-restmethod -UseBasicParsing -Uri $roleUrl -Method PUT -Body $jsonRoleBody -headers $Headers -ErrorAction SilentlyContinue
+            }
+            catch {}
+
+            if ($result){
+                Write-Output "Successfully set Reader role permissions on DCR [ $($DcrName) ] for Log Ingest App"
+            }
+            else {
+                Write-Error "Failed to set Reader role permissions on DCR [ $($DcrName) ] for Log Ingest App. Please check if the Log Ingest App Object ID is correct and has permissions to assign roles on the DCR resource."
             }
         }
     }
@@ -1783,6 +1825,25 @@ function Set-LawCheckCreateUpdateTableDcrStructure {
     elseif ($TableName -like "* *"){   # includes whitespace " "
       $IssuesFound = $true
       Write-Output "  ISSUE - Table name include whitespace - must be removed [ $($TableName) ]"
+    }
+
+    # Truncate the value to 60 characters to ensure it is accepted by the Log Ingest API
+    $Data = $Data | ForEach-Object {
+        $newObject = @{}
+        foreach ($entry in $_.PSObject.Properties) {
+            if ($entry.Name.Length -gt 60){
+                Write-Warning "[$($entry.Name)] is longer than 60 characters. This will cause the Log Ingest API to reject the data and disable the DCR until the value is fixed." 
+
+                # Rename the property to the truncated value to ensure it is accepted by the Log Ingest API
+                $newObject[$entry.Name.Substring(0, 60)] = $entry.Value
+
+                Write-Warning "Old value: [$($entry.Name)] New value: [$($entry.Name.Substring(0, 60))]"
+            }
+            else {
+                $newObject[$entry.Name] = $entry.Value
+            }
+        }
+        [PSCustomObject]$newObject
     }
 
     if ($IssuesFound -eq $false){
