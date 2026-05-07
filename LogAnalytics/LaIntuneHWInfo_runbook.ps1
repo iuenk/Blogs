@@ -49,10 +49,15 @@ $content | ForEach-Object {
 
 $DataVariable = $intuneHWInfo
 
-# Endpoint sends data directly to DCR endpoint, so we need to get the DCR details to get the endpoint and immutable id for the DCR
-$DcrDetails = Get-LawDcrDetails -DcrName $DcrName -AppId $AppId -AppSecret $AppSecret -TenantId $TenantId
+if ($null -eq $DataVariable){
+    # Endpoint sends data directly to DCR endpoint, so we need to get the DCR details to get the endpoint and immutable id for the DCR
+    $DcrDetails = Get-LawDcrDetails -DcrName $DcrName -AppId $AppId -AppSecret $AppSecret -TenantId $TenantId
 
-# Send data to Log Analytics using the DCR
-Set-LawIngestCustomLogDcr -DcrEndpoint $DcrDetails.DcrEndPointUri -DcrImmutableId $DcrDetails.DcrImmutableId `
--TableName $TableName -DcrStream $DcrDetails.DcrStream -Data $DataVariable -BatchAmount $BatchAmount `
--AppId $AppId -AppSecret $AppSecret -TenantId $TenantId
+    # Send data to Log Analytics using the DCR
+    Set-LawIngestCustomLogDcr -DcrEndpoint $DcrDetails.DcrEndPointUri -DcrImmutableId $DcrDetails.DcrImmutableId `
+    -TableName $TableName -DcrStream $DcrDetails.DcrStream -Data $DataVariable -BatchAmount $BatchAmount `
+    -AppId $AppId -AppSecret $AppSecret -TenantId $TenantId
+}
+else {
+    Write-output "No data found to upload"
+}
