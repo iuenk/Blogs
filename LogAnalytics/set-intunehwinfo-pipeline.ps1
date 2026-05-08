@@ -113,6 +113,7 @@ $DataVariable = $intuneHWInfo
 # DCR must be created with Kind = "Direct" to be able to use it for direct Log Ingestion API
 # otherwise you need to associate the DCR with an DCE: https://learn.microsoft.com/en-us/azure/azure-monitor/data-collection/data-collection-rule-structure
 # Will also update the permissions for the Log Ingest API service principal in the DCR based on the variable $SetLogIngestApiAppPermissionsDcrLevel and $LogIngestServicePrincipalObjectId
+# Will truncate the value to 60 characters to ensure it is accepted by the Log Ingest API
 Set-LawCheckCreateUpdateTableDcrStructure `
     -LogWorkspaceResourceId $LogAnalyticsWorkspaceResourceId `
     -AppId $appId -AppSecret $appSecret -TenantId $TenantId -Verbose:$Verbose `
