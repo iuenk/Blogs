@@ -27,8 +27,8 @@ param(
     [string]$intuneAppSecret
 )
 
-Write-Host "##[debug] set-IntuneHWInfo.ps1 has been initiated by [$publisher]."
-Write-Host "##[debug] set-IntuneHWInfo.ps1 SchemaMode: [$SchemaMode] SetLogIngestApiAppPermissionsDcrLevel: [$SetLogIngestApiAppPermissionsDcrLevel]."
+Write-Host "##[debug] Set-IntuneHWInfo.ps1 has been initiated by [$publisher]."
+Write-Host "##[debug] Set-IntuneHWInfo.ps1 SchemaMode: [$SchemaMode] SetLogIngestApiAppPermissionsDcrLevel: [$SetLogIngestApiAppPermissionsDcrLevel]."
 
 #region variables
 ############################## Variables ############################## 

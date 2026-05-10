@@ -92,11 +92,11 @@ stages:
           adminpassword: "$(svcautomation)"
           targetpath: "$(executionpath)"
       - task: PowerShellOnTargetMachines@3
-        displayName: 'Deploy set-intunewinfo-pipeline'
+        displayName: 'Deploy set-intunewinfo'
         inputs:
           machines: "$(agent)"
           username: "$(account)"
           userpassword: "$(svcautomation)"
           inlineScript: |
-            pwsh -File $(executionpath)\functions\set-intunewinfo-pipeline.ps1 -executionPath "$(executionpath)" -publisher "$(Build.RequestedForEmail)" -appId "$(DevopsAppId)" -appSecret "$(DevopsSecret)" -intuneAppId "$(RWAppId)" -intuneAppSecret "$(RWSecret)" -tenantId "$(tenantId)" -SchemaMode "${{parameters.SchemaMode}}" -SetLogIngestApiAppPermissionsDcrLevel "${{parameters.SetLogIngestApiAppPermissionsDcrLevel}}" -LogIngestServicePrincipalObjectId "${{parameters.LogIngestServicePrincipalObjectId}}"
+            pwsh -File $(executionpath)\functions\set-intunewinfo.ps1 -executionPath "$(executionpath)" -publisher "$(Build.RequestedForEmail)" -appId "$(DevopsAppId)" -appSecret "$(DevopsSecret)" -intuneAppId "$(RWAppId)" -intuneAppSecret "$(RWSecret)" -tenantId "$(tenantId)" -SchemaMode "${{parameters.SchemaMode}}" -SetLogIngestApiAppPermissionsDcrLevel "${{parameters.SetLogIngestApiAppPermissionsDcrLevel}}" -LogIngestServicePrincipalObjectId "${{parameters.LogIngestServicePrincipalObjectId}}"
           communicationprotocol: 'http'

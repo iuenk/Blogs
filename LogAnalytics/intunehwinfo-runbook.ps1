@@ -13,7 +13,7 @@ $securePassword = $AutomationCredential.Password
 $AppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
 
 # Get data to generate access token for Graph API Intune
-$AutomationCredential = Get-AutomationPSCredential -Name "ReadWriteSP"
+$AutomationCredential = Get-AutomationPSCredential -Name "IntuneSP"
 $IntuneAppId = $AutomationCredential.UserName
 $securePassword = $AutomationCredential.Password
 $IntuneAppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
