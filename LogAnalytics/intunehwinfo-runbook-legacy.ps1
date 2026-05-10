@@ -1,8 +1,5 @@
-#Requires -Module ucorp.lawfunctions
-
 # Authentication token is generated using the appId and appSecret of an AAD App registration with permissions to read Intune data and write to Log Analytics workspace.
-# The script retrieves the list of all Intune managed devices and their hardware information, then uploads this data to a custom table in Log Analytics using the Data Collector API (will be deprecated in the future).
-
+# The script retrieves the list of all Intune managed devices and their hardware information, then uploads this data to a custom table in Log Analytics with HTTP Data Collector API (will be deprecated).
 
 $TenantId = Get-AutomationVariable -Name "TenantId"
 
@@ -11,7 +8,25 @@ $AutomationCredential = Get-AutomationPSCredential -Name "IntuneSP"
 $IntuneAppId = $AutomationCredential.UserName
 $securePassword = $AutomationCredential.Password
 $IntuneAppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
-$Headers = Get-LawAccessToken -AppId $IntuneAppId -AppSecret $IntuneAppSecret -TenantId $TenantId
+
+$irmSplat = @{
+    Uri    = "https://login.microsoftonline.com/$($TenantId)/oauth2/v2.0/token"
+    Method = 'Post'
+}
+
+# Using Application Authentication Token
+$irmSplat['Body'] = @{
+    client_id     = $IntuneAppId
+    client_secret = $IntuneAppSecret
+    scope         = "https://graph.microsoft.com/.default"
+    grant_type    = 'client_credentials'
+}
+
+$accessToken = Invoke-RestMethod @irmSplat -ErrorAction Stop
+
+$authHeader = @{
+    Authorization = "Bearer $($accessToken.access_token)"
+}
 
 $ApLogName = "IntuneHWInfo"
 $Date = (Get-Date)
@@ -72,11 +87,11 @@ function Send-LogAnalyticsData() {
 #Main
 Write-output "getting list of all Intune Object ID's"
 $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$select=id"
-$Response = (Invoke-RestMethod -Uri $uri -Headers $Headers -Method Get)
+$Response = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
 $content = $Response.value
 $NextLink = $Response."@odata.nextLink"
     while ($null -ne $Nextlink) {
-        $Response = (Invoke-RestMethod -Uri $NextLink -Headers $Headers -Method Get)
+        $Response = (Invoke-RestMethod -Uri $NextLink -Headers $authHeader -Method Get)
         $NextLink = $Response."@odata.nextLink"
         $Content += $Response.value
     }
@@ -85,7 +100,7 @@ $Result = New-Object System.Collections.ArrayList
 $content | ForEach-Object {
     try {
         $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices(`'$($_.id)`')?`$select=hardwareinformation"
-        $data = (Invoke-RestMethod -Uri $uri -Headers $Headers -Method Get)
+        $data = (Invoke-RestMethod -Uri $uri -Headers $authHeader -Method Get)
         [void]$result.add($data.hardwareInformation)
     } 
     catch {
