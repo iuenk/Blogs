@@ -117,7 +117,7 @@ $DataVariable = $intuneHWInfo
 Set-LawCheckCreateUpdateTableDcrStructure `
     -LogWorkspaceResourceId $LogAnalyticsWorkspaceResourceId `
     -AppId $appId -AppSecret $appSecret -TenantId $TenantId -Verbose:$Verbose `
-    -DcrName $DcrName -DcrResourceGroup $ResourceGroup -TableName $TableName -Data $DataVariable `
+    -DcrName $DcrName -DcrResourceGroup $ResourceGroup -TableName $TableName -Data $DataVariable -SchemaMode $SchemaMode `
     -LogIngestServicePrincipalObjectId $LogIngestServicePrincipalObjectId `
     -SetLogIngestApiAppPermissionsDcrLevel $SetLogIngestApiAppPermissionsDcrLevel `
     -LogDcrTableCreateFromAnyMachine $LogDcrTableCreateFromAnyMachine `
